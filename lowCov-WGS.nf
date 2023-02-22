@@ -19,7 +19,7 @@ workflow {
 	
 	
 	// WORKFLOW STEPS
-    // Basic bioinformatic processing and QC
+    // Routine bioinformatic processing and QC
     MERGE_READS (
         ch_reads
     )
@@ -98,6 +98,8 @@ workflow {
     ANGSD_GWAS ()
 
     NGSLD ()
+
+    ROH ()
 
     // D_STATISTIC ()
 
