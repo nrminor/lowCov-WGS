@@ -41,7 +41,7 @@ workflow {
     )
 
     MULTIQC (
-        FASTQC.out
+        FASTQC.out.collect()
     )
 
     MAP_TO_REFERENCE (
@@ -53,7 +53,7 @@ workflow {
     )
 
     ANGSD_GL (
-        MAP_TO_REFERENCE.out
+        MAP_TO_REFERENCE.out.collect()
     )
 
     // Individual-level analyses
@@ -114,10 +114,6 @@ process MERGE_READS {
 	tag "${tag}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
 	
@@ -136,6 +132,31 @@ process MERGE_READS {
         """
     }
 	
+}
+
+
+process ORIENT_READS {
+	
+	// This process does something described here
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+    tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	
+	
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
+	
+	script:
+	"""
+    vsearch orient ${reads}
+	"""
 }
 
 
