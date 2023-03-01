@@ -170,8 +170,11 @@ workflow {
 // PROCESS SPECIFICATION 
 // --------------------------------------------------------------- //
 
-
-// Basic bioinformatic processing and QC
+// Standard bioinformatic processing and QC. 
+// -----------------------------------------
+// These steps are oriented toward Illumina short reads and not to any other 
+// platform or read length, but support for these sequence read configurations 
+// may be added in the future.
 
 process REMOVE_OPTICAL_DUPLICATES {
 
@@ -581,6 +584,10 @@ process ANGSD_GL {
 	tuple val(samples), val(populations), val(species), val(library_prep), path(bam_files)
 	
 	output:
+
+
+	when:
+	params.variant_call_only == false
 	
 	
 	script:
@@ -711,7 +718,7 @@ process STRUCTURE {
 	
 	
 	when:
-	params.structure == true
+	params.structure == true && params.variant_call_only == false
 	
 	script:
 	"""
@@ -737,6 +744,9 @@ process NGSADMIX {
 	
 	output:
 	
+
+	when:
+	params.variant_call_only == false
 	
 	script:
 	"""
@@ -765,8 +775,9 @@ process PROCESS_NAME {
 	
 	output:
 	
-	
+
 	when:
+	params.variant_call_only == false
 	
 	
 	script:
