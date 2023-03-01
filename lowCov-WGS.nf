@@ -20,9 +20,46 @@ workflow {
 	
 	// WORKFLOW STEPS
     // Routine bioinformatic processing and QC
+	REMOVE_OPTICAL_DUPLICATES (
+		ch_reads
+	)
+
+	REMOVE_LOW_QUALITY_REGIONS (
+		REMOVE_OPTICAL_DUPLICATES.out
+	)
+
+	TRIM_ADAPTERS (
+		REMOVE_LOW_QUALITY_REGIONS.out
+	)
+
+	REMOVE_ARTIFACTS (
+		TRIM_ADAPTERS.out
+	)
+
+	ERROR_CORRECT_PHASE_ONE (
+		REMOVE_ARTIFACTS.out
+	)
+
+	ERROR_CORRECT_PHASE_TWO (
+		ERROR_CORRECT_PHASE_ONE.out
+	)
+
+	ERROR_CORRECT_PHASE_THREE (
+		ERROR_CORRECT_PHASE_TWO.out
+	)
+
+	NORMALIZE_READS (
+		ERROR_CORRECT_PHASE_THREE.out
+	)
+
+	QUALITY_TRIM (
+		NORMALIZE_READS.out
+	)
+
     MERGE_READS (
-        ch_reads
-    )
+		QUALITY_TRIM.out,
+		ch_reads
+	)
 
     ORIENT_READS (
         MERGE_READS.out
@@ -32,12 +69,8 @@ workflow {
         ORIENT_READS.out
     )
 
-    TRIM_ADAPTERS (
-        FASTP_FILTER.out
-    )
-
     FASTQC (
-        TRIM_ADAPTERS.out
+        FASTP_FILTER.out
     )
 
     MULTIQC (
@@ -45,7 +78,7 @@ workflow {
     )
 
     MAP_TO_REFERENCE (
-        TRIM_ADAPTERS.out
+        FASTP_FILTER.out
     )
 
     ASSESS_DEPTH (
@@ -140,15 +173,200 @@ workflow {
 
 // Basic bioinformatic processing and QC
 
+process REMOVE_OPTICAL_DUPLICATES {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	clumpify.sh in=${reads1_path} in2=${reads2_path} \
+	out=${sample}_clumped.fastq.gz \
+	threads=${task.cpus} \
+	dedupe optical tossbrokenreads
+	"""
+
+}
+
+
+process REMOVE_LOW_QUALITY_REGIONS {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	filterbytile.sh in=${reads} \
+	out=${sample}_filtered_by_tile.fastq.gz \
+	threads=${task.cpus}
+	"""
+
+}
+
+
+process TRIM_ADAPTERS {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	bbduk.sh in=${reads} \
+	out=${sample}_trim_adapters.fastq.gz \
+	ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=70 ref=adapters ftm=5 ordered \
+	threads=${task.cpus}
+	"""
+
+}
+
+
+process REMOVE_ARTIFACTS {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	bbduk.sh in=${reads} \
+	out=${sample}_trim_adapters.fastq.gz \
+	k=31 ref=artifacts,phix ordered cardinality \
+	threads=${task.cpus}
+	"""
+
+}
+
+
+process ERROR_CORRECT_PHASE_ONE {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	bbmerge.sh in=${reads} \
+	out=${sample}_remove_artifacts.fastq.gz \
+	ecco mix vstrict ordered \
+	ihist=${sample}_ihist_merge1.txt \
+	threads=${task.cpus}
+	"""
+
+}
+
+
+process ERROR_CORRECT_PHASE_TWO {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	clumpify.sh in=${reads} \
+	out=${sample}_eccc.fastq.gz \
+	ecc passes=4 reorder \
+	threads=${task.cpus}
+	"""
+
+}
+
+
+process ERROR_CORRECT_PHASE_THREE {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	tadpole.sh in=${reads} \
+	out=${sample}_ecct.fastq.gz \
+	ecc k=62 ordered \
+	threads=${task.cpus}
+	"""
+
+}
+
+
+process NORMALIZE_READS {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	bbnorm.sh in=${reads} \
+	out=${sample}_normalized.fastq.gz \
+	target=100 \
+	hist=${sample}_khist.txt \
+	peaks=${sample}_peaks.txt
+	"""
+
+}
+
+
 process MERGE_READS {
 	
 	// This process does something described here
 	
 	tag "${sample}"
-	publishDir params.results, mode: 'copy'
 	
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(no_QC_sample), val(no_QC_population), val(no_QC_species), val(no_QC_library_prep), val(no_QC_seq_platform), path(reads1_path), path(reads2_path)
 	
 	output:
     tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
@@ -157,16 +375,42 @@ process MERGE_READS {
 	script:
     if ( reads2_path.exists() ){
         """
-        bbmerge.sh in1=${reads1_path} in2=${reads2_path} \
-        out=${sample}_${species}_${library_prep}.fastq.gz
-
+        bbmerge-auto.sh in=${reads} \
+		out=${sample}_${species}_${library_prep}.fastq.gz \
+		outu=${sample}_unmerged.fastq.gz \
+		strict k=93 extend2=80 rem ordered \
+		ihist=${sample}_ihist_merge.txt \
+		threads=${task.cpus}
         """
     } else {
         """
-        mv ${reads1_path} ${sample}_${species}_${library_prep}.fastq.gz
+        mv ${reads} ${sample}_${species}_${library_prep}.fastq.gz
         """
     }
 	
+}
+
+
+process QUALITY_TRIM {
+
+	tag "${sample}"
+
+	cpus 8
+
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+
+	output:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+
+	script:
+	"""
+	bbduk.sh in=${reads} \
+	out=${sample}_qtrimmed.fastq.gz \
+	qtrim=r trimq=10 minlen=70 ordered \
+	threads=${task.cpus}
+	"""
+
 }
 
 
@@ -186,6 +430,7 @@ process ORIENT_READS {
 	script:
 	"""
     vsearch --orient ${reads} \
+	--db ${params.reference} \
     --output ${sample}_${species}_${library_prep}_oriented.fastq.gz \
     --fastq_ascii 33
 	"""
@@ -197,7 +442,6 @@ process FASTP_FILTER {
 	// This process does something described here
 	
 	tag "${sample}"
-	publishDir params.results, mode: 'copy'
 	
 	cpus 4
 	
@@ -216,28 +460,6 @@ process FASTP_FILTER {
     --detect_adapter_for_pe --detect_adapter --correction \
     --trim_tail1 5 --trim_tail2 5 \
     --thread ${task.cpus}
-	"""
-}
-
-
-process TRIM_ADAPTERS {
-	
-	// This process does something described here
-	
-	tag "${sample}"
-	publishDir params.results, mode: 'copy'
-	
-	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
-	
-	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
-	
-	script:
-	"""
-	java -jar trimmomatic-0.35.jar SE -phred33 ${reads} \
-    ${sample}_${species}_${library_prep}_trimmed.fastq.gz \
-    ILLUMINACLIP:TruSeq3-SE:2:30:10 SLIDINGWINDOW:4:15 MINLEN:50
 	"""
 }
 
