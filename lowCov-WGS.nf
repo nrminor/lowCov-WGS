@@ -134,6 +134,8 @@ workflow {
 
     ROH ()
 
+	PEDIGREE_STRUCTURES ()
+
     // D_STATISTIC ()
 
     // Population-level analyses
@@ -172,11 +174,15 @@ workflow {
 
 // Standard bioinformatic processing and QC. 
 // -----------------------------------------
-// These steps are oriented toward Illumina short reads and not to any other 
+// These steps are designed for Illumina paired-end short reads and not to any other 
 // platform or read length, but support for these sequence read configurations 
 // may be added in the future.
 
 process REMOVE_OPTICAL_DUPLICATES {
+
+	/* 
+	This process does something described here
+	*/
 
 	tag "${sample}"
 
@@ -201,6 +207,10 @@ process REMOVE_OPTICAL_DUPLICATES {
 
 process REMOVE_LOW_QUALITY_REGIONS {
 
+	/* 
+	This process does something described here
+	*/
+
 	tag "${sample}"
 
 	cpus 8
@@ -222,6 +232,10 @@ process REMOVE_LOW_QUALITY_REGIONS {
 
 
 process TRIM_ADAPTERS {
+	
+	/* 
+	This process does something described here
+	*/
 
 	tag "${sample}"
 
@@ -246,6 +260,10 @@ process TRIM_ADAPTERS {
 
 process REMOVE_ARTIFACTS {
 
+	/* 
+	This process does something described here
+	*/
+
 	tag "${sample}"
 
 	cpus 8
@@ -268,6 +286,10 @@ process REMOVE_ARTIFACTS {
 
 
 process ERROR_CORRECT_PHASE_ONE {
+
+	/* 
+	This process does something described here
+	*/
 
 	tag "${sample}"
 
@@ -293,6 +315,10 @@ process ERROR_CORRECT_PHASE_ONE {
 
 process ERROR_CORRECT_PHASE_TWO {
 
+	/* 
+	This process does something described here
+	*/
+
 	tag "${sample}"
 
 	cpus 8
@@ -316,6 +342,10 @@ process ERROR_CORRECT_PHASE_TWO {
 
 process ERROR_CORRECT_PHASE_THREE {
 
+	/* 
+	This process does something described here
+	*/
+
 	tag "${sample}"
 
 	cpus 8
@@ -338,6 +368,10 @@ process ERROR_CORRECT_PHASE_THREE {
 
 
 process NORMALIZE_READS {
+
+	/* 
+	This process does something described here
+	*/
 
 	tag "${sample}"
 
@@ -363,8 +397,10 @@ process NORMALIZE_READS {
 
 process MERGE_READS {
 	
-	// This process does something described here
-	
+	/* 
+	This process does something described here
+	*/
+
 	tag "${sample}"
 	
 	input:
@@ -396,6 +432,10 @@ process MERGE_READS {
 
 process QUALITY_TRIM {
 
+	/* 
+	This process does something described here
+	*/
+
 	tag "${sample}"
 
 	cpus 8
@@ -419,7 +459,9 @@ process QUALITY_TRIM {
 
 process ORIENT_READS {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${sample}"
 	publishDir params.results, mode: 'copy'
@@ -442,7 +484,9 @@ process ORIENT_READS {
 
 process FASTP_FILTER {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${sample}"
 	
@@ -469,7 +513,9 @@ process FASTP_FILTER {
 
 process FASTQC {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${sample}"
 	
@@ -490,7 +536,9 @@ process FASTQC {
 
 process MULTIQC {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${tag}"
 	publishDir params.results, mode: 'copy'
@@ -512,7 +560,9 @@ process MULTIQC {
 
 process MAP_TO_REFERENCE {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${sample}"
 	publishDir params.results, mode: 'copy'
@@ -535,7 +585,9 @@ process MAP_TO_REFERENCE {
 
 process ASSESS_DEPTH {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	publishDir params.results, mode: 'copy'
 	
@@ -554,7 +606,9 @@ process ASSESS_DEPTH {
 
 process PLOT_DEPTH {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	publishDir params.results, mode: 'copy'
 	
@@ -573,7 +627,9 @@ process PLOT_DEPTH {
 
 process ANGSD_GL {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${species} ${library_prep}"
 	publishDir params.results, mode: 'copy'
@@ -605,7 +661,9 @@ process ANGSD_GL {
 
 process CALL_VARIANTS {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${species} ${library_prep}"
 	publishDir params.results, mode: 'copy'
@@ -637,7 +695,9 @@ process CALL_VARIANTS {
 
 process FILTER_VARIANTS {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${species} ${library_prep}"
 	publishDir params.results, mode: 'copy'
@@ -658,7 +718,9 @@ process FILTER_VARIANTS {
 
 process MERGE_VARIANTS {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${species} ${library_prep}"
 	publishDir params.results, mode: 'copy'
@@ -729,6 +791,7 @@ process STRUCTURE {
     --format=str --full \
     --seed=${params.random_seed}
 	"""
+
 }
 
 
@@ -743,7 +806,7 @@ process NGSADMIX {
 	tuple val(species), val(library_prep), path(bam_files)
 	
 	output:
-	
+	path "*"
 
 	when:
 	params.variant_call_only == false
@@ -759,9 +822,11 @@ process NGSADMIX {
 }
 
 
-process PROCESS_NAME {
+process PCANGSD {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${tag}"
 	publishDir params.results, mode: 'copy'
@@ -787,9 +852,11 @@ process PROCESS_NAME {
 }
 
 
-process PROCESS_NAME {
+process FASTPCA {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
 	tag "${tag}"
 	publishDir params.results, mode: 'copy'
@@ -812,5 +879,443 @@ process PROCESS_NAME {
 	
 	"""
 }
+
+
+process OHANA {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process ANGSD_GWAS {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process NGSLD {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process ROH {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process PEDIGREE_STRUCTURES {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process D_STATISTIC {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+// Population-level analyses
+
+process ANGSD_AF {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process ANGSD_SFS {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process VISUALIZE_SFS {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process BUILD_STAIRWAY_PLOT_SCRIPT {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process STAIRWAY_PLOT {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process ANGSD_FST {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process NGSTOOLS_FST {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+process VCFLIB_ASSESS_FST {
+	
+	/* 
+	This process does something described here
+	*/
+	
+	tag "${tag}"
+	publishDir params.results, mode: 'copy'
+	
+	memory 1.GB
+	cpus 1
+	time '10minutes'
+	
+	input:
+	
+	
+	output:
+	
+	
+	when:
+	
+	
+	script:
+	"""
+	
+	"""
+}
+
+
+// PROCESS CODE TEMPLATE:
+// process PROCESS_NAME {
+	
+// 	/* 
+// 	This process does something described here
+// 	*/
+	
+// 	tag "${tag}"
+// 	publishDir params.results, mode: 'copy'
+	
+// 	memory 1.GB
+// 	cpus 1
+// 	time '10minutes'
+	
+// 	input:
+	
+	
+// 	output:
+	
+	
+// 	when:
+	
+	
+// 	script:
+// 	"""
+	
+// 	"""
+// }
 
 // --------------------------------------------------------------- //
