@@ -113,7 +113,7 @@ workflow {
 
     // Individual-level analyses
     STRUCTURE (
-        MERGE_VARIANTS.out
+        MERGE_VARIANTS.out.vcf
     )
 
     NGSADMIX (
@@ -122,38 +122,75 @@ workflow {
             .groupTuple( by:[0,1] )
     )
 
-    PCANGSD ()
+    PCANGSD (
+        MAP_TO_REFERENCE.out
+            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+            .groupTuple( by:[0,1] )
+	)
 
-    FASTPCA ()
+    FASTPCA (
+		ANGSD_GL.out
+	)
 
-    OHANA ()
+    OHANA (
+        MERGE_VARIANTS.out.vcf
+	)
 
-    ANGSD_GWAS ()
+    ANGSD_GWAS (
+        MAP_TO_REFERENCE.out
+            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+            .groupTuple( by:[0,1] )
+	)
 
-    NGSLD ()
+    NGSLD (
+		FILTER_VARIANTS.out.vcf
+	)
 
-    ROH ()
+    ROH (
+		MAP_TO_REFERENCE.out
+	)
 
-	PEDIGREE_STRUCTURES ()
+	PEDIGREE_STRUCTURES (
+		MERGE_VARIANTS.out.vcf
+	)
 
     // D_STATISTIC ()
 
     // Population-level analyses
-    ANGSD_AF ()
+    ANGSD_AF (
+        MAP_TO_REFERENCE.out
+            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+            .groupTuple( by:[0,1] )
+	)
     
-    ANGSD_SFS ()
+    ANGSD_SFS (
+        MAP_TO_REFERENCE.out
+            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+            .groupTuple( by:[0,1] )
+	)
 
-    VISUALIZE_SFS ()
+    VISUALIZE_SFS (
+		ANGSD_SFS.out.sfs
+	)
 
-    BUILD_STAIRWAY_PLOT_SCRIPT ()
+    STAIRWAY_PLOT (
+		ANGSD_SFS.out.sfs
+	)
 
-    STAIRWAY_PLOT ()
-
-    ANGSD_FST ()
+    ANGSD_FST (
+        MAP_TO_REFERENCE.out
+            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+            .groupTuple( by:[0,1] )
+	)
 
     NGSTOOLS_FST ()
 
-    VCFLIB_ASSESS_FST ()
+    VCFLIB_ASSESS_FST (
+		ANGSD_FST.out
+			.mix (
+				NGSTOOLS_FST.out
+			)
+	)
 	
 }
 // --------------------------------------------------------------- //
@@ -768,19 +805,21 @@ process MERGE_VARIANTS {
 
 process STRUCTURE {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
-	tag "${tag}"
+	tag "${species}"
 	publishDir params.results, mode: 'copy'
 	
 	input:
 	tuple path(merged_vcf), val(species), val(library_prep), val(sample_size)
 	
 	output:
-	
+	path "*"
 	
 	when:
-	params.structure == true && params.variant_call_only == false
+	params.estimate_structure == true && params.variant_call_only == false
 	
 	script:
 	"""
@@ -797,9 +836,11 @@ process STRUCTURE {
 
 process NGSADMIX {
 	
-	// This process does something described here
+	/* 
+	This process does something described here
+	*/
 	
-	tag "${tag}"
+	tag "${species}"
 	publishDir params.results, mode: 'copy'
 	
 	input:
@@ -831,23 +872,24 @@ process PCANGSD {
 	tag "${tag}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
+	cpus 4
 	
 	input:
-	
+	tuple val(species), val(library_prep), path(beagle)
 	
 	output:
 	
 
 	when:
-	params.variant_call_only == false
-	
+	params.variant_call_only == false && params.principal_component_analyses == true
 	
 	script:
 	"""
-	
+	PCAngsd -beagle ${beagle} \
+	-o ${species}_${library_prep} \
+	-minMaf ${params.minor_allele_frequency} \
+	-admix \
+	-threads ${task.cpus}
 	"""
 }
 
@@ -855,28 +897,44 @@ process PCANGSD {
 process FASTPCA {
 	
 	/* 
-	This process does something described here
+
+	Important note to deal with from ChatGPT:
+
+	"Note that fastpca assumes that the genotype data is in Hardy-Weinberg 
+	equilibrium (HWE). If your data violates HWE assumptions, the PCA results 
+	may be biased. You may need to filter out SNPs that deviate from HWE before 
+	running fastpca.
+
+	Also note that fastpca assumes that the genotype data is diploid and biallelic. 
+	If your data includes polyploid or multiallelic sites, you may need to preprocess 
+	the data to convert it to a diploid, biallelic format."
+
 	*/
 	
-	tag "${tag}"
+	tag "${species}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
+	cpus 4
 	
 	input:
+	tuple val(species), val(library_prep), path(vcf)
 	
 	
 	output:
 	
 	
 	when:
-	
+	params.variant_call_only == false && params.principal_component_analyses == true
 	
 	script:
 	"""
-	
+	plink --vcf input_file.vcf \
+	--make-bed --out ${species}_${library_prep} && \
+	fastpca -b ${species}_${library_prep}.bed \
+	-f ${species}_${library_prep}.bim \
+	-o ${species}_${library_prep} \
+	-t ${task.cpus} \
+	-n 10
 	"""
 }
 
@@ -884,28 +942,40 @@ process FASTPCA {
 process OHANA {
 	
 	/* 
-	This process does something described here
+
+	NOTE: 
+
+	Need to work out how to use Plink and another program to create the input file
+	formats that ohana requires.
+
 	*/
 	
-	tag "${tag}"
+	tag "${species}"
 	publishDir params.results, mode: 'copy'
-	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
+
+	cpus 4
 	
 	input:
-	
+	path pop_map
+	tuple val(species), val(library_prep), path(vcf)
 	
 	output:
-	
+	path "*"
 	
 	when:
-	
+	params.variant_call_only == false && params.selection_scan == true
 	
 	script:
 	"""
-	
+	ohana -geno input_file.geno \
+	-pos input_file.pos \
+	-pop ${pop_map} \
+	-out output_file \
+	-sel BAYENV \
+	-threads ${task.cpus} \
+	-minmaf ${params.minor_allele_frequency} \
+	-mincoverage ${params.min_depth} \
+	-n 5000
 	"""
 }
 
@@ -916,25 +986,32 @@ process ANGSD_GWAS {
 	This process does something described here
 	*/
 	
-	tag "${tag}"
+	tag "${species}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
 	input:
-	
+	tuple val(species), val(library_prep), path(bam_files)
 	
 	output:
-	
+	path "*.assoc"
 	
 	when:
-	
+	params.variant_call_only == false && params.genome_wide_association == true
 	
 	script:
 	"""
-	
+    find . -name "*.bam" > bam_file_list.txt && \
+	angsd -bam input_list.txt \
+	-out ${species}_${library_prep} \
+	-doAsso 2 \
+	-GL 1 \
+	-doMaf 1 \
+	-SNP_pval 1e-6 \
+	-minMapQ 30 \
+	-minQ 20 \
+	-minInd ${params.max_snp_missingness} \
+	-minMaf ${params.minor_allele_frequency} \
+	-setMaxDepth ${params.max_depth}
 	"""
 }
 
@@ -945,25 +1022,25 @@ process NGSLD {
 	This process does something described here
 	*/
 	
-	tag "${tag}"
+	tag "${species}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
 	input:
-	
+	tuple val(species), val(library_prep), path(vcf)
 	
 	output:
-	
+	path "*.ld"
 	
 	when:
-	
+	params.variant_call_only == false && params.linkage_disequilibrium == true
 	
 	script:
 	"""
-	
+	NGSLD -vcf ${vcf} \
+	-out "${species}_${library_prep}" \
+	-ld \
+	-maf ${params.minor_allele_frequency} \
+	-ref ${params.reference}
 	"""
 }
 
@@ -974,25 +1051,26 @@ process ROH {
 	This process does something described here
 	*/
 	
-	tag "${tag}"
+	tag "${sample}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
 	input:
-	
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(bam)
 	
 	output:
-	
+	path ".txt"
 	
 	when:
-	
+	params.esimate_roh == true && params.variant_call_only == false
 	
 	script:
 	"""
-	
+	samtools view -H ${bam} | grep '^@RG' | cut -f 2 | cut -d ":" -f 2 > sample_list.txt && \
+	samtools roh \
+	-r chrom:start-end \
+	-c sample_list.txt \
+	-o ${sample}_roh.txt \
+	input_file.bam
 	"""
 }
 
@@ -1000,29 +1078,185 @@ process ROH {
 process PEDIGREE_STRUCTURES {
 	
 	/* 
-	This process does something described here
+
+	This process was inspired by the Molecular Ecology Resources study 
+	Petty et al. 2019, titled:
+
+	"Pedigree reconstruction and distant pairwise relatedness estimation 
+	from genome sequence data: A demonstration in a population of rhesus 
+	macaques (Macaca mulatta)"
+	
+	Code for this process comes from that study's GitHub repository, which 
+	may be viewed at the link below:
+
+	https://github.com/belowlab/tnprc-pedigrees
+	
 	*/
 	
-	tag "${tag}"
+	tag "${species}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
 	input:
-	
+	tuple val(species), val(library_prep), path(vcf)
 	
 	output:
-	
+	path "*"
 	
 	when:
+	params.pedigree_estimation == true && params.variant_call_only == false
 	
-	
-	script:
-	"""
-	
-	"""
+	shell:
+	'''
+	input_vcf=!{merged_vcf}
+	gatk VariantFiltration \
+	--variant ${input_vcf} \
+	--output tulane_allchr_filtered.vcf \
+	--filter-name "hard_filter" \
+	--filter-expression "AC == 0 || QD < 10.0 || FS > 2.0 || ( MQ < 59.0 && MQ > 61.00 ) || SOR > 1.5"
+
+	# converting vcf to PLINK format files for PRIMUS:
+	plink --vcf tulane_allchr_filtered.vcf \
+		--make-bed --out tulane_allchr_filtered_plink
+
+	# running PRIMUS:
+	run_PRIMUS.pl --file tulane_allchr_filtered_plink \
+		--genome --keep_inter_files --internal_ref \
+		--degree_rel_cutoff 1 --output_dir PRIMUS_results
+
+	# combining networks in PRIMUS:
+	for network in {0..29}
+	do
+		grep -P "^${network}\t" > group${network}_keep
+		plink --bfile tulane_allchr_filtered_plink \
+			--keep group${network}_keep --make-bed \
+			--out tulane_allchr_filtered_plink_group${network}
+		run_PRIMUS.pl --file tulane_allchr_filtered_plink_group${network} \
+			--genome --keep_inter_files --degree_rel_cutoff 2 \
+			--internal_ref --output_dir PRIMUS_group${network}
+	done
+
+	# splitting by chromosome:
+	for c in {1..20}
+	do
+		plink --bfile tulane_allchr_filtered_plink \
+			--chr ${c} --recode vcf \
+			--out tulane_filtered_chr${c}
+	done
+
+	# phasing:
+	for c in {1..20}
+	do
+		echo "java -jar beagle.25Nov19.28d.jar gt=tulane_filtered_chr${c}.vcf nthreads=3 out=tulane_filtered_chr${c}_phased"
+	done | parallel
+
+	# converting phased to PLINK format, preparing GERMLINE input:
+	for c in {1..20}
+	do
+		vcftools --gzvcf tulane_filtered_chr${c}_phased.vcf.gz \
+			--plink --out tulane_filtered_chr${c}_phased_plink
+		awk '{ OFS="\t"; $3=($4/1000000)*0.433; print; }' tulane_filtered_chr${c}_phased_plink.map > tulane_filtered_chr${c}_phased_plink_cm.map
+		echo "1" > germline_chr${c}.run
+		echo "tulane_filtered_chr${c}_phased_plink_cm.map" >> germline_chr${c}.run
+		echo "tulane_filtered_chr${c}_phased_plink.ped" >> germline_chr${c}.run
+		echo "tulane_filtered_chr${c}_phased_plink_germline" >> germline_chr${c}.run
+	done
+
+	# running GERMLINE:
+	het=1
+	hom=2
+	for c in {1..20}
+	do
+		echo "germline -min_m 2.5 -err_het ${het} -err_hom ${hom} < germline_chr${c}.run"
+	done | parallel
+
+	# running ERSA
+	ersa --segment_files=*.match --number_of_chromosomes=20 \
+		--rec_per_meioses=13.6239623 --confidence_level=0.999 \
+		--output_file=ersa_results.txt --model_output_file=ersa_models.txt
+
+	# varying recombinations per meiosis in ERSA:
+	for r in $(seq 6.0 0.2 13.4)
+	do
+			ersa --segment_files=*.match --number_of_chromosomes=20 \
+			--confidence_level=0.999 --control_files=nontulane_0419.match \
+			--mask_common_shared_regions=true --mask_region_threshold=6 \
+			--rec_per_meioses=${r} --output_file=ersa_results_varied_rpm_${r}.txt \
+			--model_output_file=ersa_models_varied_rpm_${r}.txt
+	done
+
+	# running PADRE
+	run_PRIMUS.pl --project_summary PRIMUS_results/Summary_tulane_allchr_filtered_plink.genome.txt \
+		--ersa_model_output ersa_models.txt --ersa_results ersa_results.txt --degree_rel_cutoff 1
+
+
+	## Downsampled analyses
+	# variant filtering for downsampled data
+	bcftools filter -i 'FORMAT/DP>5 && GQ>12' -S . \
+		-o downsampled_5.0_filt.vcf starting_vcf_file.vcf
+
+	# converting vcf to PLINK format files for PRIMUS:
+	plink --vcf downsampled_5.0_filt.vcf \
+		--make-bed --out downsampled_5.0_filt_plink
+
+	# running PRIMUS:
+	run_PRIMUS.pl --file downsampled_5.0_filt_plink \
+		--genome --keep_inter_files --internal_ref \
+		--degree_rel_cutoff 1 --output_dir PRIMUS_results_5.0
+
+	# combining networks in PRIMUS:
+	for network in {0..29}
+	do
+		plink --bfile downsampled_5.0_filt_plink \
+			--keep group${network}_keep --make-bed \
+			--out downsampled_5.0_filt_plink_group${network}
+		run_PRIMUS.pl --file downsampled_5.0_filt_plink_group${network} \
+			--genome --keep_inter_files --degree_rel_cutoff 2 \
+			--internal_ref --output_dir PRIMUS_results_5.0_group${network}
+	done
+
+	# splitting by chromosome:
+	for c in {1..20}
+	do
+		plink --bfile downsampled_5.0_filt_plink \
+			--chr ${c} --recode vcf \
+			--out downsampled_5.0_filt_chr${c}
+	done
+
+	# phasing:
+	for c in {1..20}
+	do
+		echo "java -jar beagle.25Nov19.28d.jar gt=downsampled_5.0_filt_chr${c}.vcf nthreads=3 out=downsampled_5.0_filt_chr${c}_phased"
+	done | parallel
+
+	# converting phased to PLINK format, preparing GERMLINE input:
+	for c in {1..20}
+	do
+		vcftools --gzvcf downsampled_5.0_filt_chr${c}_phased.vcf.gz \
+			--plink --out downsampled_5.0_filt_chr${c}_phased_plink
+		awk '{ OFS="\t"; $3=($4/1000000)*0.433; print; }' downsampled_5.0_filt_chr${c}_phased_plink.map > downsampled_5.0_filt_chr${c}_phased_plink_cm.map
+		echo "1" > germline_chr${c}.run
+		echo "downsampled_5.0_filt_chr${c}_phased_plink_cm.map" >> germline_chr${c}.run
+		echo "downsampled_5.0_filt_chr${c}_phased_plink.ped" >> germline_chr${c}.run
+		echo "downsampled_5.0_filt_chr${c}_phased_germline" >> germline_chr${c}.run
+	done
+
+	# running GERMLINE:
+	het=19
+	hom=5
+	for c in {1..20}
+	do
+		echo "germline -min_m 2.5 -err_het ${het} -err_hom ${hom} < germline_chr${c}.run"
+	done | parallel
+
+	# running ERSA
+	ersa --segment_files=*.match --number_of_chromosomes=20 \
+		--rec_per_meioses=13.6239623 --confidence_level=0.999 \
+		--output_file=ersa_results_5.0.txt --model_output_file=ersa_models_5.0.txt
+
+	# running PADRE
+	run_PRIMUS.pl --project_summary PRIMUS_results_5.0/Summary_downsampled_5.0_filt_plink.genome.txt \
+		--ersa_model_output ersa_models_5.0.txt --ersa_results ersa_results_5.0.txt --degree_rel_cutoff 1
+	'''
 }
 
 
@@ -1046,7 +1280,7 @@ process D_STATISTIC {
 	
 	
 	when:
-	
+	params.variant_call_only == false
 	
 	script:
 	"""
@@ -1066,22 +1300,25 @@ process ANGSD_AF {
 	tag "${tag}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
+	cpus 4
 	
 	input:
-	
+	tuple val(samples), val(populations), val(species), val(library_prep), path(bam_files)
 	
 	output:
 	
 	
 	when:
-	
+	params.variant_call_only == false
 	
 	script:
 	"""
-	
+    find . -name "*.bam" > bam_file_list.txt && \
+	angsd -b bam_list.txt \
+	-doMajorMinor 1 \
+	-doMaf 1 \
+	-out ${species}_${library_prep} \
+	-P ${task.cpus}
 	"""
 }
 
@@ -1095,22 +1332,29 @@ process ANGSD_SFS {
 	tag "${tag}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
+	cpus 4
 	
 	input:
-	
+	tuple val(samples), val(populations), val(species), val(library_prep), path(bam_files)
 	
 	output:
-	
+	path "*"
 	
 	when:
-	
+	params.variant_call_only == false && params.site_frequency_spectra == true
 	
 	script:
 	"""
-	
+    find . -name "*.bam" > bam_file_list.txt && \
+	angsd -b bam_list.txt \
+	-doSaf 1 \
+	-ref ${params.reference} \
+	-GL 1 \
+	-nThreads ${task.cpus} \
+    -out ${species}_${library_prep} && \
+	realSFS ${species}_${library_prep}.saf.idx \
+	-maxIter 100 \
+	-tole 1e-6 -P ${task.cpus} > ${species}_${library_prep}_sfs.txt
 	"""
 }
 
@@ -1121,54 +1365,18 @@ process VISUALIZE_SFS {
 	This process does something described here
 	*/
 	
-	tag "${tag}"
+	tag "${prep} ${species}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
 	input:
-	
+	tuple path(sfs), val(species), val(prep), val(sample_size)
 	
 	output:
-	
-	
-	when:
-	
+	path "*.pdf"
 	
 	script:
 	"""
-	
-	"""
-}
-
-
-process BUILD_STAIRWAY_PLOT_SCRIPT {
-	
-	/* 
-	This process does something described here
-	*/
-	
-	tag "${tag}"
-	publishDir params.results, mode: 'copy'
-	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
-	input:
-	
-	
-	output:
-	
-	
-	when:
-	
-	
-	script:
-	"""
-	
+	SFS_plotting.R ${sfs} ${species} ${params.date}
 	"""
 }
 
@@ -1179,24 +1387,48 @@ process STAIRWAY_PLOT {
 	This process does something described here
 	*/
 	
-	tag "${tag}"
+	tag "${prep} ${species}"
 	publishDir params.results, mode: 'copy'
 	
-	memory 1.GB
-	cpus 1
-	time '10minutes'
-	
 	input:
-	
+	tuple path(sfs), val(species), val(prep), val(sample_size)
 	
 	output:
-	
+	path "*${species}_${prep}*"
 	
 	when:
-	
+	params.variant_call_only == false && params.site_frequency_spectra == true && stairwayplot == true
 	
 	script:
 	"""
+	
+	# create stairway plot blueprint based on VCF and settings in nextflow.config
+	create_stairwayplot_blueprint.R ${sfs} \
+	${species} \
+	${species} \
+	${prep} \
+	${sample_size} \
+	${params.genome_length} \
+	${params.year_per_generation} \
+	${params.mutation_rate} \
+	${params.random_seed} \
+	${params.whether_folded}
+	
+	# Pull stairway plot files
+	wget https://github.com/xiaoming-liu/stairway-plot-v2/raw/master/stairway_plot_v2.1.1.zip && \
+	unzip -o stairway_plot_v2.1.1.zip -d . && \
+	rm stairway_plot_v2.1.1.zip && \
+	mv stairway_plot_v2.1.1/stairway_plot_es/ . && \
+	rm -rf stairway_plot_v2.1.1/
+	
+	# create stairway plot shell script and then run it
+	java -cp stairway_plot_es Stairbuilder ${species}_${species}_${prep}.blueprint && \
+	bash ${species}_${species}_${prep}.blueprint.sh
+	
+	# error out if summary files don't exist
+	if [ \$(find . -maxdepth 1 -type f -name "*.final.summary*" | wc -l) -eq 0 ]; then
+		error 1
+	fi
 	
 	"""
 }
@@ -1222,7 +1454,7 @@ process ANGSD_FST {
 	
 	
 	when:
-	
+	params.variant_call_only == false
 	
 	script:
 	"""
@@ -1251,7 +1483,7 @@ process NGSTOOLS_FST {
 	
 	
 	when:
-	
+	params.variant_call_only == false
 	
 	script:
 	"""
@@ -1280,7 +1512,7 @@ process VCFLIB_ASSESS_FST {
 	
 	
 	when:
-	
+	params.variant_call_only == false
 	
 	script:
 	"""
