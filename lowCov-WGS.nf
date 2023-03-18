@@ -209,6 +209,14 @@ workflow {
 // --------------------------------------------------------------- //
 // Additional parameters that are derived from parameters set in nextflow.config
 
+// specifying whether to run in low disk mode
+if( params.low_disk_mode == true ) {
+	params.publishMode = 'symlink'
+}
+else {
+	params.publishMode = 'copy'
+}
+
 // Preprocessing results subdirectories
 params.preprocessing = params.results + "/01_preprocessing"
 params.merged_reads = params.preprocessing + "/01_read_merging"
@@ -256,7 +264,7 @@ process MERGE_READS {
 	*/
 
 	tag "${sample}"
-	publishDir params.merged_reads, pattern: "*merged.fastq.gz", mode: 'symlink'
+	publishDir params.merged_reads, pattern: "*merged.fastq.gz", mode: params.publishMode
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
@@ -292,7 +300,7 @@ process REMOVE_OPTICAL_DUPLICATES {
 	*/
 
 	tag "${sample}"
-	publishDir params.optical_dedupe, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.optical_dedupe, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -320,7 +328,7 @@ process REMOVE_LOW_QUALITY_REGIONS {
 	*/
 
 	tag "${sample}"
-	publishDir params.low_quality, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.low_quality, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -347,7 +355,7 @@ process TRIM_ADAPTERS {
 	*/
 
 	tag "${sample}"
-	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -375,7 +383,7 @@ process REMOVE_ARTIFACTS {
 	*/
 
 	tag "${sample}"
-	publishDir params.remove_artifacts, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.remove_artifacts, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -403,7 +411,7 @@ process ERROR_CORRECT_PHASE_ONE {
 	*/
 
 	tag "${sample}"
-	publishDir params.error_correct, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -432,7 +440,7 @@ process ERROR_CORRECT_PHASE_TWO {
 	*/
 
 	tag "${sample}"
-	publishDir params.error_correct, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -460,7 +468,7 @@ process ERROR_CORRECT_PHASE_THREE {
 	*/
 
 	tag "${sample}"
-	publishDir params.error_correct, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -488,7 +496,7 @@ process NORMALIZE_READS {
 	*/
 
 	tag "${sample}"
-	publishDir params.normalize, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.normalize, pattern: "*.fastq.gz", mode: params.publishMode
 
 	cpus 8
 
@@ -545,7 +553,7 @@ process ORIENT_READS {
 	*/
 	
 	tag "${sample}"
-	publishDir params.orient, pattern: "*.fastq.gz", mode: 'symlink'
+	publishDir params.orient, pattern: "*.fastq.gz", mode: params.publishMode
 	
 	input:
     tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
