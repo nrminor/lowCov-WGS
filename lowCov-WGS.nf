@@ -20,8 +20,12 @@ workflow {
 	
 	// WORKFLOW STEPS
     // Routine bioinformatic processing and QC
-	REMOVE_OPTICAL_DUPLICATES (
+    MERGE_READS (
 		ch_reads
+	)
+
+	REMOVE_OPTICAL_DUPLICATES (
+		MERGE_READS.out
 	)
 
 	REMOVE_LOW_QUALITY_REGIONS (
@@ -56,13 +60,8 @@ workflow {
 		NORMALIZE_READS.out
 	)
 
-    MERGE_READS (
-		QUALITY_TRIM.out,
-		ch_reads
-	)
-
     ORIENT_READS (
-        MERGE_READS.out
+        QUALITY_TRIM.out
     )
 
     FASTP_FILTER (
@@ -110,6 +109,15 @@ workflow {
 			.groupTuple( by: [1,2] ),
 		FILTER_VARIANTS.out.index.collect()
     )
+
+	FILTER_SNPS_BY_SAMPLE_COUNT (
+		MERGE_VARIANTS.out.vcf
+	)
+
+	RECORD_SNP_FILTERS (
+		FILTER_SNPS_BY_SAMPLE_COUNT.out.vcf
+	)
+
 
     // Individual-level analyses
     STRUCTURE (
@@ -201,6 +209,30 @@ workflow {
 // --------------------------------------------------------------- //
 // Additional parameters that are derived from parameters set in nextflow.config
 
+// Preprocessing results subdirectories
+params.preprocessing = params.results + "/01_preprocessing"
+params.merged_reads = params.preprocessing + "/01_read_merging"
+params.optical_dedupe = params.preprocessing + "/02_optical_dedup"
+params.low_quality = params.preprocessing + "/03_remove_low_quality"
+params.trim_adapters = params.preprocessing + "/04_trim_adapters"
+params.remove_artifacts = params.preprocessing + "/05_remove_artifacts"
+params.error_correct = params.preprocessing + "/06_error_correct"
+params.normalize = params.preprocessing + "/07_normalized_reads"
+params.qtrim = params.preprocessing + "/08_quality_trim"
+params.orient = params.preprocessing + "/09_orient_reads"
+params.fastp = params.preprocessing + "/10_fastp_filter"
+
+// FASTQ read QC reports
+params.read_reports = params.preprocessing + "/11_read_reports"
+params.fastqc = params.read_reports + "/FastQC"
+params.multiqc = params.read_reports + "/MultiQC"
+
+// Read mapping, SNP calling, and SNP filtering
+params.read_mapping = params.results + "/02_read_mapping"
+params.variant_calling = params.results + "/03_snp_calling"
+params.per_sample = params.variant_calling + "/by_sample_snps"
+params.merged = params.variant_calling + "/merged_snps"
+
 // --------------------------------------------------------------- //
 
 
@@ -211,9 +243,47 @@ workflow {
 
 // Standard bioinformatic processing and QC. 
 // -----------------------------------------
-// These steps are designed for Illumina paired-end short reads and not to any other 
+// These steps are designed for Illumina short reads and not to any other 
 // platform or read length, but support for these sequence read configurations 
-// may be added in the future.
+// may be added in the future. The reads preprocessing steps were inspired by
+// standards at the Joint Genomics Institute, as described at:
+// https://jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/data-preprocessing/
+
+process MERGE_READS {
+	
+	/* 
+	This process does something described here
+	*/
+
+	tag "${sample}"
+	publishDir params.merged_reads, pattern: "*merged.fastq.gz", mode: 'symlink'
+	
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
+	
+	output:
+    tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
+	
+	
+	script:
+    if ( reads2_path.exists() ){
+        """
+		reformat.sh in1=${reads1_path} in2=${reads2_path} out=interleaved_reads.fq && \
+        bbmerge-auto.sh in=interleaved_reads.fq \
+		out=${sample}_${species}_${library_prep}_merged.fastq.gz \
+		outu=${sample}_unmerged.fastq.gz \
+		strict k=93 extend2=80 rem ordered \
+		ihist=${sample}_ihist_merge.txt \
+		threads=${task.cpus}
+        """
+    } else {
+        """
+        cp ${reads1_path} ./${sample}_${species}_${library_prep}_se.fastq.gz
+        """
+    }
+	
+}
+
 
 process REMOVE_OPTICAL_DUPLICATES {
 
@@ -222,11 +292,12 @@ process REMOVE_OPTICAL_DUPLICATES {
 	*/
 
 	tag "${sample}"
+	publishDir params.optical_dedupe, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
 
 	output:
 	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
@@ -249,6 +320,7 @@ process REMOVE_LOW_QUALITY_REGIONS {
 	*/
 
 	tag "${sample}"
+	publishDir params.low_quality, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
@@ -275,6 +347,7 @@ process TRIM_ADAPTERS {
 	*/
 
 	tag "${sample}"
+	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
@@ -302,6 +375,7 @@ process REMOVE_ARTIFACTS {
 	*/
 
 	tag "${sample}"
+	publishDir params.remove_artifacts, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
@@ -329,6 +403,7 @@ process ERROR_CORRECT_PHASE_ONE {
 	*/
 
 	tag "${sample}"
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
@@ -357,6 +432,7 @@ process ERROR_CORRECT_PHASE_TWO {
 	*/
 
 	tag "${sample}"
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
@@ -384,6 +460,7 @@ process ERROR_CORRECT_PHASE_THREE {
 	*/
 
 	tag "${sample}"
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
@@ -411,6 +488,7 @@ process NORMALIZE_READS {
 	*/
 
 	tag "${sample}"
+	publishDir params.normalize, pattern: "*.fastq.gz", mode: 'symlink'
 
 	cpus 8
 
@@ -432,41 +510,6 @@ process NORMALIZE_READS {
 }
 
 
-process MERGE_READS {
-	
-	/* 
-	This process does something described here
-	*/
-
-	tag "${sample}"
-	
-	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
-	tuple val(no_QC_sample), val(no_QC_population), val(no_QC_species), val(no_QC_library_prep), val(no_QC_seq_platform), path(reads1_path), path(reads2_path)
-	
-	output:
-    tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
-	
-	
-	script:
-    if ( reads2_path.exists() ){
-        """
-        bbmerge-auto.sh in=${reads} \
-		out=${sample}_${species}_${library_prep}.fastq.gz \
-		outu=${sample}_unmerged.fastq.gz \
-		strict k=93 extend2=80 rem ordered \
-		ihist=${sample}_ihist_merge.txt \
-		threads=${task.cpus}
-        """
-    } else {
-        """
-        mv ${reads} ${sample}_${species}_${library_prep}.fastq.gz
-        """
-    }
-	
-}
-
-
 process QUALITY_TRIM {
 
 	/* 
@@ -474,6 +517,7 @@ process QUALITY_TRIM {
 	*/
 
 	tag "${sample}"
+	publishDir params.qtrim, pattern: "*.fastq.gz", mode: 'copy'
 
 	cpus 8
 
@@ -501,7 +545,7 @@ process ORIENT_READS {
 	*/
 	
 	tag "${sample}"
-	publishDir params.results, mode: 'copy'
+	publishDir params.orient, pattern: "*.fastq.gz", mode: 'symlink'
 	
 	input:
     tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
@@ -526,6 +570,7 @@ process FASTP_FILTER {
 	*/
 	
 	tag "${sample}"
+	publishDir params.fastp, pattern: "*.fastq.gz", mode: 'copy'
 	
 	cpus 4
 	
@@ -555,6 +600,7 @@ process FASTQC {
 	*/
 	
 	tag "${sample}"
+	publishDir params.fastqc, pattern: "*.fastq.gz", mode: 'copy'
 	
 	cpus 4
 	
@@ -577,8 +623,7 @@ process MULTIQC {
 	This process does something described here
 	*/
 	
-	tag "${tag}"
-	publishDir params.results, mode: 'copy'
+	publishDir params.multiqc, pattern: "*.fastq.gz", mode: 'copy'
 	
 	cpus 4
 	
@@ -602,7 +647,7 @@ process MAP_TO_REFERENCE {
 	*/
 	
 	tag "${sample}"
-	publishDir params.results, mode: 'copy'
+	publishDir params.read_mapping, mode: 'copy'
 	
 	cpus 4
 	
@@ -626,7 +671,7 @@ process ASSESS_DEPTH {
 	This process does something described here
 	*/
 	
-	publishDir params.results, mode: 'copy'
+	publishDir params.depth, mode: 'copy'
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(bam)
@@ -647,7 +692,7 @@ process PLOT_DEPTH {
 	This process does something described here
 	*/
 	
-	publishDir params.results, mode: 'copy'
+	publishDir params.depth, mode: 'copy'
 	
 	input:
 	path mosdepth_files
@@ -669,7 +714,7 @@ process ANGSD_GL {
 	*/
 	
 	tag "${species} ${library_prep}"
-	publishDir params.results, mode: 'copy'
+	publishDir params.gl, mode: 'copy'
 	
 	cpus 8
 	
@@ -714,18 +759,6 @@ process CALL_VARIANTS {
 	script:
 	"""
 	
-	vcftools --gzvcf ${vcf} \
-	--max-alleles 2 \
-	--mac ${params.minor_allele_count} \
-	--max-missing-count ${params.max_snp_missingness} \
-	--minQ ${params.min_quality} \
-	--minDP ${params.min_depth} \
-	--remove-indels \
-	--remove-filtered-all \
-	--recode --stdout \
-	| bgzip -c > "${sample}_${prep}_filtered.vcf.gz" && \
-	tabix -p vcf "${sample}_${prep}_filtered.vcf.gz"
-	
 	"""
 }
 
@@ -737,7 +770,7 @@ process FILTER_VARIANTS {
 	*/
 	
 	tag "${species} ${library_prep}"
-	publishDir params.results, mode: 'copy'
+	publishDir params.per_sample, mode: 'copy'
 	
 	input:
 	tuple val(species), val(library_prep), path(vcf)
@@ -748,6 +781,18 @@ process FILTER_VARIANTS {
 	
 	script:
 	"""
+	
+	vcftools --gzvcf ${vcf} \
+	--max-alleles 2 \
+	--mac ${params.minor_allele_count} \
+	--max-missing-count ${params.max_snp_missingness} \
+	--minQ ${params.min_quality} \
+	--minDP ${params.min_depth} \
+	--remove-indels \
+	--remove-filtered-all \
+	--recode --stdout \
+	| bgzip -c > "${sample}_${prep}_filtered.vcf.gz" && \
+	tabix -p vcf "${sample}_${prep}_filtered.vcf.gz"
     
 	"""
 }
@@ -760,7 +805,6 @@ process MERGE_VARIANTS {
 	*/
 	
 	tag "${species} ${library_prep}"
-	publishDir params.results, mode: 'copy'
 	
 	input:
 	tuple path(vcf_files), val(species), val(prep)
@@ -780,24 +824,76 @@ process MERGE_VARIANTS {
 	--output !{species}_multisample_!{prep}.vcf.gz \
 	*!{species}*.vcf.gz
 	
-	sample_ids=`bcftools query -l !{species}_multisample_!{prep}.vcf.gz`
-	sample_size=`bcftools query -l !{species}_multisample_!{prep}.vcf.gz | wc -l`
-	minInd="$((${sample_size} - !{params.max_snp_missingness}))"
+	'''
+}
+
+
+process FILTER_SNPS_BY_SAMPLE_COUNT {
+	
+	tag "${prep} ${species}"
+	publishDir params.merged, pattern: "*.vcf.gz", mode: 'copy'
+	publishDir params.merged, pattern: "*.tbi", mode: 'copy'
+	
+	cpus 2
+	
+	input:
+	tuple path(vcf), val(species), val(prep)
+	
+	output:
+	tuple path("${species}_${prep}_filtered.vcf.gz"), val(species), val(prep), env(sample_size), emit: vcf
+	path "*.tbi", emit: index
+	
+	script:
+	"""
+	
+	vcftools --gzvcf ${vcf} \
+	--max-alleles 2 \
+	--mac ${params.minor_allele_count} \
+	--max-missing-count ${params.max_snp_missingness} \
+	--remove-indels \
+	--remove-filtered-all \
+	--recode --stdout \
+	| bgzip -c > "${species}_${prep}_filtered.vcf.gz" && \
+	tabix -p vcf "${species}_${prep}_filtered.vcf.gz" && \
+	sample_size=`bcftools query -l ${species}_${prep}_filtered.vcf.gz | wc -l`
+	
+	"""
+	
+}
+
+
+process RECORD_SNP_FILTERS {
+	
+	tag "${prep} ${species}"
+	publishDir params.variant_calling, mode: 'copy', pattern: '*.txt'
+	
+	cpus 1
+	
+	input:
+	tuple path(vcf), val(species), val(prep), val(sample_size)
+	
+	output:
+	path "*.txt"
+	
+	shell:
+	'''
+	sample_ids=`bcftools query -l !{vcf}`
+	minInd="$((!{sample_size} - !{params.max_snp_missingness}))"
 	
 	touch !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
 	echo "VCF FILTER SETTINGS APPLIED TO !{prep} !{species} SNPS" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
 	echo "----------------------------------------------------------" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
 	echo "" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
-	echo "Minor allele frequency: !{params.minor_allele_frequency}" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
-	echo "Minimum samples: ${minInd} / ${sample_size}" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
+	echo "Minor allele count: SNP must be observed in !{params.minor_allele_count} out of !{sample_size} samples" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
+	echo "Minimum samples: ${minInd} / !{sample_size}" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
 	echo "Minimum variant quality score: !{params.min_quality}" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
 	echo "Minimum Depth: !{params.min_depth}" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
 	echo "Maximum Depth: !{params.max_depth}" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
-	echo "Sample IDs included: ${sample_ids}" >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
-	
+	echo "Sample IDs included: " >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
+	echo ${sample_ids} >> !{prep}_!{species}_vcf_filter_settings_!{params.date}.txt
 	'''
+	
 }
-
 
 
 
