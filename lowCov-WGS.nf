@@ -260,7 +260,8 @@ params.merged = params.variant_calling + "/merged_snps"
 process MERGE_READS {
 	
 	/* 
-	This process does something described here
+	First, we interleave and then merge paired reads or give single-end reads a more
+	informative name.
 	*/
 
 	tag "${sample}"
@@ -296,7 +297,7 @@ process MERGE_READS {
 process REMOVE_OPTICAL_DUPLICATES {
 
 	/* 
-	This process does something described here
+	This process removes optical duplicates from the Illumina flow cell.
 	*/
 
 	tag "${sample}"
@@ -324,7 +325,7 @@ process REMOVE_OPTICAL_DUPLICATES {
 process REMOVE_LOW_QUALITY_REGIONS {
 
 	/* 
-	This process does something described here
+	Low quality regions of each read are removed in this process.
 	*/
 
 	tag "${sample}"
@@ -351,7 +352,8 @@ process REMOVE_LOW_QUALITY_REGIONS {
 process TRIM_ADAPTERS {
 	
 	/* 
-	This process does something described here
+	This process takes the pipeline's first pass at removing adapters, along
+	with some additional parameters recommended by bbmap.
 	*/
 
 	tag "${sample}"
@@ -379,7 +381,8 @@ process TRIM_ADAPTERS {
 process REMOVE_ARTIFACTS {
 
 	/* 
-	This process does something described here
+	Here we remove various contantimants that may have ended up in the reads,
+	such as PhiX sequences that are often used as a sequencing control.
 	*/
 
 	tag "${sample}"
@@ -407,7 +410,8 @@ process REMOVE_ARTIFACTS {
 process ERROR_CORRECT_PHASE_ONE {
 
 	/* 
-	This process does something described here
+	Bbmap recommends three phases of read error correction, the first of which
+	goes through BBMerge.
 	*/
 
 	tag "${sample}"
@@ -436,7 +440,7 @@ process ERROR_CORRECT_PHASE_ONE {
 process ERROR_CORRECT_PHASE_TWO {
 
 	/* 
-	This process does something described here
+	The second phase of error correction goes through clumpify.sh
 	*/
 
 	tag "${sample}"
@@ -464,7 +468,7 @@ process ERROR_CORRECT_PHASE_TWO {
 process ERROR_CORRECT_PHASE_THREE {
 
 	/* 
-	This process does something described here
+	The third phase of error correction uses tadpole.sh.
 	*/
 
 	tag "${sample}"
@@ -492,7 +496,10 @@ process ERROR_CORRECT_PHASE_THREE {
 process NORMALIZE_READS {
 
 	/* 
-	This process does something described here
+	In the process, reads are "normalized" by removing exceptionally repetitive
+	sequences. Sequences that repeat above a threshold number of times (100) 
+	are considered outliers and removed from sequences with "normal" numbers
+	of repetitions in the dataset.
 	*/
 
 	tag "${sample}"
@@ -521,7 +528,8 @@ process NORMALIZE_READS {
 process QUALITY_TRIM {
 
 	/* 
-	This process does something described here
+	Here we quality trim reads from both ends to a minimum Phred quality of 10, 
+	and enforce a minimum read length of 70 bases. 
 	*/
 
 	tag "${sample}"
@@ -539,7 +547,7 @@ process QUALITY_TRIM {
 	"""
 	bbduk.sh in=${reads} \
 	out=${sample}_qtrimmed.fastq.gz \
-	qtrim=r trimq=10 minlen=70 ordered \
+	qtrim=rl trimq=10 minlen=70 ordered \
 	threads=${task.cpus}
 	"""
 
@@ -549,7 +557,9 @@ process QUALITY_TRIM {
 process ORIENT_READS {
 	
 	/* 
-	This process does something described here
+	Next, reads are oriented such that they have the same 5' to 3' polarity as the 
+	reference sequence, which reduces the need to map or primer-trim reverse 
+	complements. This step may be removed in future versions.
 	*/
 	
 	tag "${sample}"
@@ -574,7 +584,9 @@ process ORIENT_READS {
 process FASTP_FILTER {
 	
 	/* 
-	This process does something described here
+	To be safe, we use a second algorithm here to trim adapters, quality-
+	control, and generate a before and after report. Fastp also offers
+	a low-complexity trimmer, which can be useful for short reads.
 	*/
 	
 	tag "${sample}"
@@ -592,11 +604,13 @@ process FASTP_FILTER {
 	"""
 	fastp --in1 ${reads} \
     --out1 ${sample}_${species}_${library_prep}_filtered.fastq.gz \
-    --qualified_quality_phred 20 \
-    --length_required 50 \
+    --qualified_quality_phred 10 \
+    --length_required 70 \
     --detect_adapter_for_pe --detect_adapter --correction \
-    --trim_tail1 5 --trim_tail2 5 \
-    --thread ${task.cpus}
+	--low_complexity_filter \
+    --trim_tail1 5 \
+    --thread ${task.cpus} \
+	-h ${sample}_${species}_${library_prep}.html
 	"""
 }
 
@@ -604,7 +618,8 @@ process FASTP_FILTER {
 process FASTQC {
 	
 	/* 
-	This process does something described here
+	Read preprocessing is now complete. To assess the quality of your
+	dataset, we first run FastQC on each sample's reads.
 	*/
 	
 	tag "${sample}"
@@ -628,7 +643,7 @@ process FASTQC {
 process MULTIQC {
 	
 	/* 
-	This process does something described here
+	Finally, we collate the individual FastQC reports into one MultiQC report.
 	*/
 	
 	publishDir params.multiqc, pattern: "*.fastq.gz", mode: 'copy'
@@ -651,7 +666,9 @@ process MULTIQC {
 process MAP_TO_REFERENCE {
 	
 	/* 
-	This process does something described here
+	This step uses the BWA MEM algorithm to map each FASTQ to a reference genome.
+	It then uses samtools to convert the resulting SAM file into a BAM file, which
+	is binary and thus much smaller.
 	*/
 	
 	tag "${sample}"
@@ -676,7 +693,7 @@ process MAP_TO_REFERENCE {
 process ASSESS_DEPTH {
 	
 	/* 
-	This process does something described here
+	Next we generate depth reports for each BAM file using mosdepth.
 	*/
 	
 	publishDir params.depth, mode: 'copy'
@@ -697,7 +714,7 @@ process ASSESS_DEPTH {
 process PLOT_DEPTH {
 	
 	/* 
-	This process does something described here
+	The mosdepth results are then plotted with a simple R script.
 	*/
 	
 	publishDir params.depth, mode: 'copy'
@@ -718,7 +735,9 @@ process PLOT_DEPTH {
 process ANGSD_GL {
 	
 	/* 
-	This process does something described here
+	BAM files are then used as inputs for ANGSD, which will generate genotype
+	likelihoods that can be used more confidently with low coverage data than
+	hard variant calls.
 	*/
 	
 	tag "${species} ${library_prep}"
