@@ -20,12 +20,12 @@ workflow {
 	
 	// WORKFLOW STEPS
     // Routine bioinformatic processing and QC
-    MERGE_READS (
+    INTERLEAVE_READS (
 		ch_reads
 	)
 
 	REMOVE_OPTICAL_DUPLICATES (
-		MERGE_READS.out
+		INTERLEAVE_READS.out
 	)
 
 	REMOVE_LOW_QUALITY_REGIONS (
@@ -56,8 +56,12 @@ workflow {
 		ERROR_CORRECT_PHASE_THREE.out
 	)
 
-	QUALITY_TRIM (
+	MERGE_READS (
 		NORMALIZE_READS.out
+	)
+
+	QUALITY_TRIM (
+		MERGE_READS.out
 	)
 
     ORIENT_READS (
@@ -257,15 +261,16 @@ params.merged = params.variant_calling + "/merged_snps"
 // standards at the Joint Genomics Institute, as described at:
 // https://jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/data-preprocessing/
 
-process MERGE_READS {
+process INTERLEAVE_READS {
 	
 	/* 
-	First, we interleave and then merge paired reads or give single-end reads a more
-	informative name.
+	First, we interleave paired reads into a single FASTQ, or give 
+	single-end reads a more informative name. This step is merely
+	a convenience, and does not alter or remove any reads in the
+	raw FASTQ files.
 	*/
 
 	tag "${sample}"
-	publishDir params.merged_reads, pattern: "*merged.fastq.gz", mode: params.publishMode
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
@@ -277,13 +282,10 @@ process MERGE_READS {
 	script:
     if ( reads2_path.exists() ){
         """
-		reformat.sh in1=${reads1_path} in2=${reads2_path} out=interleaved_reads.fq && \
-        bbmerge-auto.sh in=interleaved_reads.fq \
-		out=${sample}_${species}_${library_prep}_merged.fastq.gz \
-		outu=${sample}_unmerged.fastq.gz \
-		strict k=93 extend2=80 rem ordered \
-		ihist=${sample}_ihist_merge.txt \
-		threads=${task.cpus}
+		reformat.sh \
+		in1=${reads1_path} \
+		in2=${reads2_path} \
+		out=${sample}_${species}_${library_prep}_se.fastq.gz
         """
     } else {
         """
@@ -522,6 +524,35 @@ process NORMALIZE_READS {
 	peaks=${sample}_peaks.txt
 	"""
 
+}
+
+
+process MERGE_READS {
+	
+	/* 
+	Next, we merge any perfectly identical reads to reduce computational overhead
+	without losing read support.
+	*/
+
+	tag "${sample}"
+	publishDir params.merged_reads, pattern: "*merged.fastq.gz", mode: params.publishMode
+	
+	input:
+	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
+	
+	output:
+    tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
+	
+	script:
+	"""
+	bbmerge-auto.sh in=${fastq} \
+	out=${sample}_${species}_${library_prep}_merged.fastq.gz \
+	outu=${sample}_unmerged.fastq.gz \
+	strict k=93 extend2=80 rem ordered \
+	ihist=${sample}_ihist_merge.txt \
+	threads=${task.cpus}
+	"""
+	
 }
 
 
