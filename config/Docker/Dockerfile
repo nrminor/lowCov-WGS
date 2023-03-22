@@ -1,40 +1,37 @@
-FROM alpine:latest
+FROM ubuntu:20.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND noninteractive
+ENV TZ America/Chicago
 
 # Install required packages
-RUN apk update && apk add --no-cache \
-    bash \
-    ca-certificates \
+RUN apt-get update && apt-get install -y \
     wget \
     curl \
     tar \
     gzip \
     bzip2 \
-    xz \
     make \
     automake \
     gcc \
     g++ \
-    musl-dev \
-    ncurses-dev \
-    zlib-dev \
-    libbz2 \
-    libbz2-dev \
-    libzip-dev \
-    libressl-dev \
     git \
-    R \
-    R-tidyverse \
+    r-base \
     python-is-python3 \
     python3-pip \
     perl \
     bcftools \
     vcftools \
-    freebayes \
-    mosdepth
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev
 
 # Install python packages
 RUN pip3 install --upgrade pip && \
     pip3 install numpy pandas scipy cython pysam jupyter
+
+# Install tidyverse package in R
+RUN R -e 'install.packages("tidyverse")'
 
 # Install bbmap
 RUN wget https://downloads.sourceforge.net/project/bbmap/BBMap_38.90.tar.gz && \
@@ -90,25 +87,26 @@ RUN wget https://github.com/samtools/samtools/releases/download/1.13/samtools-1.
     rm -rf samtools-1.13
 
 # Install ANGSD
-RUN git clone https://github.com/ANGSD/angsd.git && \
-    cd angsd && \
-    make HTSSRC=/usr/include/ && \
-    make install && \
-    cd ..
+# RUN git clone https://github.com/ANGSD/angsd.git && \
+#     cd angsd && \
+#     make HTSSRC=/usr/include/ && \
+#     make install && \
+#     cd ..
 
 # Install popscle
-RUN git clone --recursive https://github.com/cooplab/popscle.git && \
-    cd popscle && \
-    make
+# RUN git clone --recursive https://github.com/cooplab/popscle.git && \
+#     cd popscle && \
+#     make
 
 # Install EEMS
-RUN wget https://github.com/evolbioinf/eems/archive/refs/tags/v2.1.7.tar.gz && \
-    tar -xvzf v2.1.7.tar.gz && \
-    cd eems-2.1.7 && \
-    make
+# RUN wget https://github.com/evolbioinf/eems/archive/refs/tags/v2.1.7.tar.gz && \
+#     tar -xvzf v2.1.7.tar.gz && \
+#     cd eems-2.1.7 && \
+#     make
 
 # Add tools to PATH
-ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/lib/R/site-library/:/usr/local/bin/EEMS
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/lib/R/site-library/ 
+#:/usr/local/bin/EEMS
 
 # Set the working directory
 WORKDIR /usr/src/app
