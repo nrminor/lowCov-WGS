@@ -72,137 +72,137 @@ workflow {
         ORIENT_READS.out
     )
 
-    FASTQC (
-        FASTP_FILTER.out
-    )
+    // FASTQC (
+    //     FASTP_FILTER.out
+    // )
 
-    MULTIQC (
-        FASTQC.out.collect()
-    )
+    // MULTIQC (
+    //     FASTQC.out.collect()
+    // )
 
     MAP_TO_REFERENCE (
         FASTP_FILTER.out
     )
 
-    ASSESS_DEPTH (
-        MAP_TO_REFERENCE.out
-    )
+    // ASSESS_DEPTH (
+    //     MAP_TO_REFERENCE.out
+    // )
 
-    PLOT_DEPTH (
-        ASSESS_DEPTH.out
-    )
+    // PLOT_DEPTH (
+    //     ASSESS_DEPTH.out
+    // )
 
-    ANGSD_GL (
-        MAP_TO_REFERENCE.out
-            .map { sample, population, species, library_prep, seq_platform, bam -> sample, population, species, library_prep, bam }
-            .groupTuple( by:[2,3] )
-    )
+    // ANGSD_GL (
+    //     MAP_TO_REFERENCE.out
+    //         .map { sample, population, species, library_prep, seq_platform, bam -> sample, population, species, library_prep, bam }
+    //         .groupTuple( by:[2,3] )
+    // )
 
-    CALL_VARIANTS (
-        MAP_TO_REFERENCE.out
-    )
+    // CALL_VARIANTS (
+    //     MAP_TO_REFERENCE.out
+    // )
 
-    FILTER_VARIANTS (
-        CALL_VARIANTS.out
-    )
+    // FILTER_VARIANTS (
+    //     CALL_VARIANTS.out
+    // )
 
-    MERGE_VARIANTS (
-        FILTER_VARIANTS.out.vcf
-			.map { species, library_prep, vcf -> tuple( file(raw_vcf), species, prep_type ) }
-			.filter { file(it[0]).countLines() > 0 }
-			.groupTuple( by: [1,2] ),
-		FILTER_VARIANTS.out.index.collect()
-    )
+    // MERGE_VARIANTS (
+    //     FILTER_VARIANTS.out.vcf
+	// 		.map { species, library_prep, vcf -> tuple( file(raw_vcf), species, prep_type ) }
+	// 		.filter { file(it[0]).countLines() > 0 }
+	// 		.groupTuple( by: [1,2] ),
+	// 	FILTER_VARIANTS.out.index.collect()
+    // )
 
-	FILTER_SNPS_BY_SAMPLE_COUNT (
-		MERGE_VARIANTS.out.vcf
-	)
+	// FILTER_SNPS_BY_SAMPLE_COUNT (
+	// 	MERGE_VARIANTS.out.vcf
+	// )
 
-	RECORD_SNP_FILTERS (
-		FILTER_SNPS_BY_SAMPLE_COUNT.out.vcf
-	)
+	// RECORD_SNP_FILTERS (
+	// 	FILTER_SNPS_BY_SAMPLE_COUNT.out.vcf
+	// )
 
 
     // Individual-level analyses
-    STRUCTURE (
-        MERGE_VARIANTS.out.vcf
-    )
+    // STRUCTURE (
+    //     MERGE_VARIANTS.out.vcf
+    // )
 
-    NGSADMIX (
-        MAP_TO_REFERENCE.out
-            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
-            .groupTuple( by:[0,1] )
-    )
+    // NGSADMIX (
+    //     MAP_TO_REFERENCE.out
+    //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+    //         .groupTuple( by:[0,1] )
+    // )
 
-    PCANGSD (
-        MAP_TO_REFERENCE.out
-            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
-            .groupTuple( by:[0,1] )
-	)
+    // PCANGSD (
+    //     MAP_TO_REFERENCE.out
+    //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+    //         .groupTuple( by:[0,1] )
+	// )
 
-    FASTPCA (
-		ANGSD_GL.out
-	)
+    // FASTPCA (
+	// 	ANGSD_GL.out
+	// )
 
-    OHANA (
-        MERGE_VARIANTS.out.vcf
-	)
+    // OHANA (
+    //     MERGE_VARIANTS.out.vcf
+	// )
 
-    ANGSD_GWAS (
-        MAP_TO_REFERENCE.out
-            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
-            .groupTuple( by:[0,1] )
-	)
+    // ANGSD_GWAS (
+    //     MAP_TO_REFERENCE.out
+    //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+    //         .groupTuple( by:[0,1] )
+	// )
 
-    NGSLD (
-		FILTER_VARIANTS.out.vcf
-	)
+    // NGSLD (
+	// 	FILTER_VARIANTS.out.vcf
+	// )
 
-    ROH (
-		MAP_TO_REFERENCE.out
-	)
+    // ROH (
+	// 	MAP_TO_REFERENCE.out
+	// )
 
-	PEDIGREE_STRUCTURES (
-		MERGE_VARIANTS.out.vcf
-	)
+	// PEDIGREE_STRUCTURES (
+	// 	MERGE_VARIANTS.out.vcf
+	// )
 
     // D_STATISTIC ()
 
     // Population-level analyses
-    ANGSD_AF (
-        MAP_TO_REFERENCE.out
-            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
-            .groupTuple( by:[0,1] )
-	)
+    // ANGSD_AF (
+    //     MAP_TO_REFERENCE.out
+    //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+    //         .groupTuple( by:[0,1] )
+	// )
     
-    ANGSD_SFS (
-        MAP_TO_REFERENCE.out
-            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
-            .groupTuple( by:[0,1] )
-	)
+    // ANGSD_SFS (
+    //     MAP_TO_REFERENCE.out
+    //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+    //         .groupTuple( by:[0,1] )
+	// )
 
-    VISUALIZE_SFS (
-		ANGSD_SFS.out.sfs
-	)
+    // VISUALIZE_SFS (
+	// 	ANGSD_SFS.out.sfs
+	// )
 
-    STAIRWAY_PLOT (
-		ANGSD_SFS.out.sfs
-	)
+    // STAIRWAY_PLOT (
+	// 	ANGSD_SFS.out.sfs
+	// )
 
-    ANGSD_FST (
-        MAP_TO_REFERENCE.out
-            .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
-            .groupTuple( by:[0,1] )
-	)
+    // ANGSD_FST (
+    //     MAP_TO_REFERENCE.out
+    //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
+    //         .groupTuple( by:[0,1] )
+	// )
 
-    NGSTOOLS_FST ()
+    // NGSTOOLS_FST ()
 
-    VCFLIB_ASSESS_FST (
-		ANGSD_FST.out
-			.mix (
-				NGSTOOLS_FST.out
-			)
-	)
+    // VCFLIB_ASSESS_FST (
+	// 	ANGSD_FST.out
+	// 		.mix (
+	// 			NGSTOOLS_FST.out
+	// 		)
+	// )
 	
 }
 // --------------------------------------------------------------- //
