@@ -9,6 +9,11 @@ timeline.html*
 report.html*
 *.dot
 *.png.*
+results/
+reads/
+resources/*.fna*
+resources/*.fasta*
+resources/*.fa*
 
 
 # DEVELOPMENT ENVIRONMENT FILES TO IGNORE

@@ -17,6 +17,8 @@ workflow {
         .splitCsv( header: true )
         .map { row -> tuple(row.sample, row.population, row.species, row.library_prep, row.seq_platform, file(row.reads1_path), file(row.reads2_path)) }
 	
+	ch_reference = Channel
+		.fromPath( params.reference )
 	
 	// WORKFLOW STEPS
     // Routine bioinformatic processing and QC
@@ -65,7 +67,8 @@ workflow {
 	)
 
     ORIENT_READS (
-        QUALITY_TRIM.out
+        QUALITY_TRIM.out,
+		ch_reference
     )
 
     FASTP_FILTER (
@@ -276,7 +279,8 @@ process INTERLEAVE_READS {
 	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
 	
 	output:
-    tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
+    tuple val(sample), val(population), val(species), val(library_prep), env(paired_status), path("*.fastq.gz")
+
 	
 	
 	script:
@@ -285,11 +289,13 @@ process INTERLEAVE_READS {
 		reformat.sh \
 		in1=${reads1_path} \
 		in2=${reads2_path} \
-		out=${sample}_${species}_${library_prep}_se.fastq.gz
+		out=${sample}_${species}_${library_prep}.fastq.gz
+		paired_status=`echo "paired"`
         """
     } else {
         """
         cp ${reads1_path} ./${sample}_${species}_${library_prep}_se.fastq.gz
+		paired_status=`echo "paired"`
         """
     }
 	
@@ -303,19 +309,19 @@ process REMOVE_OPTICAL_DUPLICATES {
 	*/
 
 	tag "${sample}"
-	publishDir params.optical_dedupe, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.optical_dedupe, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
-	clumpify.sh in=${reads1_path} in2=${reads2_path} \
+	clumpify.sh in=${reads} \
 	out=${sample}_clumped.fastq.gz \
 	threads=${task.cpus} \
 	dedupe optical tossbrokenreads
@@ -331,15 +337,15 @@ process REMOVE_LOW_QUALITY_REGIONS {
 	*/
 
 	tag "${sample}"
-	publishDir params.low_quality, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.low_quality, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
@@ -359,15 +365,15 @@ process TRIM_ADAPTERS {
 	*/
 
 	tag "${sample}"
-	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
@@ -388,20 +394,20 @@ process REMOVE_ARTIFACTS {
 	*/
 
 	tag "${sample}"
-	publishDir params.remove_artifacts, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.remove_artifacts, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
 	bbduk.sh in=${reads} \
-	out=${sample}_trim_adapters.fastq.gz \
+	out=${sample}_remove_artifacts.fastq.gz \
 	k=31 ref=artifacts,phix ordered cardinality \
 	threads=${task.cpus}
 	"""
@@ -417,20 +423,20 @@ process ERROR_CORRECT_PHASE_ONE {
 	*/
 
 	tag "${sample}"
-	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
 	bbmerge.sh in=${reads} \
-	out=${sample}_remove_artifacts.fastq.gz \
+	out=${sample}_error_correct1.fastq.gz \
 	ecco mix vstrict ordered \
 	ihist=${sample}_ihist_merge1.txt \
 	threads=${task.cpus}
@@ -446,20 +452,20 @@ process ERROR_CORRECT_PHASE_TWO {
 	*/
 
 	tag "${sample}"
-	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
 	clumpify.sh in=${reads} \
-	out=${sample}_eccc.fastq.gz \
+	out=${sample}_error_correct2.fastq.gz \
 	ecc passes=4 reorder \
 	threads=${task.cpus}
 	"""
@@ -474,20 +480,20 @@ process ERROR_CORRECT_PHASE_THREE {
 	*/
 
 	tag "${sample}"
-	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
 	tadpole.sh in=${reads} \
-	out=${sample}_ecct.fastq.gz \
+	out=${sample}_error_correct3.fastq.gz \
 	ecc k=62 ordered \
 	threads=${task.cpus}
 	"""
@@ -505,15 +511,15 @@ process NORMALIZE_READS {
 	*/
 
 	tag "${sample}"
-	publishDir params.normalize, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.normalize, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
@@ -535,23 +541,29 @@ process MERGE_READS {
 	*/
 
 	tag "${sample}"
-	publishDir params.merged_reads, pattern: "*merged.fastq.gz", mode: params.publishMode
+	publishDir params.merged_reads, mode: params.publishMode, overwrite: true
 	
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 	
 	output:
-    tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
+    tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*_merged.fastq.gz")
 	
 	script:
-	"""
-	bbmerge-auto.sh in=${fastq} \
-	out=${sample}_${species}_${library_prep}_merged.fastq.gz \
-	outu=${sample}_unmerged.fastq.gz \
-	strict k=93 extend2=80 rem ordered \
-	ihist=${sample}_ihist_merge.txt \
-	threads=${task.cpus}
-	"""
+	println paired_status
+	if ( paired_status == "paired" )
+		"""
+		bbmerge-auto.sh in=${reads} \
+		out=${sample}_merged.fastq.gz \
+		outu=${sample}_unmerged.fastq.gz \
+		strict k=93 extend2=80 rem ordered \
+		ihist=${sample}_ihist_merge.txt \
+		threads=${task.cpus}
+		"""
+	else
+		"""
+		cp ${reads} ./${sample}_se_not_merged.fastq.gz
+		"""
 	
 }
 
@@ -564,15 +576,15 @@ process QUALITY_TRIM {
 	*/
 
 	tag "${sample}"
-	publishDir params.qtrim, pattern: "*.fastq.gz", mode: 'copy'
+	publishDir params.qtrim, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 
 	cpus 8
 
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
 	"""
@@ -594,20 +606,20 @@ process ORIENT_READS {
 	*/
 	
 	tag "${sample}"
-	publishDir params.orient, pattern: "*.fastq.gz", mode: params.publishMode
+	publishDir params.orient, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
 	input:
-    tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+    tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
+	each path(reference)
 	
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 	
 	script:
 	"""
     vsearch --orient ${reads} \
-	--db ${params.reference} \
-    --output ${sample}_${species}_${library_prep}_oriented.fastq.gz \
-    --fastq_ascii 33
+	--db ${reference} \
+    --fastqout ${sample}_oriented.fastq.gz
 	"""
 }
 
@@ -621,15 +633,15 @@ process FASTP_FILTER {
 	*/
 	
 	tag "${sample}"
-	publishDir params.fastp, pattern: "*.fastq.gz", mode: 'copy'
+	publishDir params.fastp, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 	
 	cpus 4
 	
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 	
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.fastq.gz")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 	
 	script:
 	"""
@@ -654,12 +666,12 @@ process FASTQC {
 	*/
 	
 	tag "${sample}"
-	publishDir params.fastqc, pattern: "*.fastq.gz", mode: 'copy'
+	publishDir params.fastqc, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 	
 	cpus 4
 	
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 	
 	output:
 	path "*"
@@ -677,7 +689,7 @@ process MULTIQC {
 	Finally, we collate the individual FastQC reports into one MultiQC report.
 	*/
 	
-	publishDir params.multiqc, pattern: "*.fastq.gz", mode: 'copy'
+	publishDir params.multiqc, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 	
 	cpus 4
 	
@@ -703,15 +715,15 @@ process MAP_TO_REFERENCE {
 	*/
 	
 	tag "${sample}"
-	publishDir params.read_mapping, mode: 'copy'
+	publishDir params.read_mapping, mode: 'copy', overwrite: true
 	
 	cpus 4
 	
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 	
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path("*.bam")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.bam")
 	
 	script:
 	"""
@@ -730,7 +742,7 @@ process ASSESS_DEPTH {
 	publishDir params.depth, mode: 'copy'
 	
 	input:
-	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(bam)
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(bam)
 	
 	output:
 	path "*"

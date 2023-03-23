@@ -30,3 +30,11 @@ The pipeline can also perform so-called population level analyses, again mostly 
 - Fst probability assessment with `vcflib`
 
 All of these tools will be prepackaged and versioned in a Docker image associated with this workflow, which means the only tools you will need to install yourself are Git, NextFlow, Java, and either Docker or Singularity.
+
+### Example invocation
+```
+nextflow run lowCov-WGS.nf \
+--samplesheet resources/nrm_test.csv \
+--low_disk_mode true \
+--reference resources/GCA_014549065.1_CCar_1.0_genomic.fna
+```

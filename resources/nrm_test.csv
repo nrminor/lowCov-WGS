@@ -1,2 +1,2 @@
 sample,population,species,library_prep,seq_platform,reads1_path,reads2_path
-LAZB01,Nevada,LAZB,RAD,Illumina,/pfs/tc1/project/passerinagenome/nminor1/0_deprecated_thesis_scripts/data/processed_RAD_genomes/1_demultiplexed/demultiplexed_with_stacks/unfiltered_reads/INBU01.fq.gz,/pfs/tc1/project/passerinagenome/nminor1/0_deprecated_thesis_scripts/data/processed_RAD_genomes/1_demultiplexed/demultiplexed_with_stacks/unfiltered_reads/INBU01_002.fq.gz
+LAZB01,Nevada,LAZB,RAD,Illumina,/Volumes/working_ssd/nrm_experiments/001/reads/LAZB01.fq.gz,/Volumes/working_ssd/nrm_experiments/001/reads/LAZB01_002.fq.gz
