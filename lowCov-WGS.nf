@@ -295,7 +295,7 @@ process INTERLEAVE_READS {
     } else {
         """
         cp `realpath ${reads1_path}` ./${sample}_${species}_${library_prep}_se.fastq.gz
-		paired_status=`echo "paired"`
+		paired_status=`echo "single-end"`
         """
     }
 	
@@ -569,7 +569,7 @@ process MERGE_READS {
 		"""
 	else
 		"""
-		cp ${reads} ./${sample}_se_not_merged.fastq.gz
+		cp `realpath ${reads}` ./${sample}_se_not_merged.fastq.gz
 		"""
 	
 }
