@@ -651,17 +651,29 @@ process FASTP_FILTER {
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 	
 	script:
-	"""
-	fastp --in1 ${reads} \
-    --out1 ${sample}_${species}_${library_prep}_filtered.fastq.gz \
-    --qualified_quality_phred 10 \
-    --length_required 70 \
-    --detect_adapter_for_pe --detect_adapter --correction \
-	--low_complexity_filter \
-    --trim_tail1 5 \
-    --thread ${task.cpus} \
-	-h ${sample}_${species}_${library_prep}.html
-	"""
+	if ( paired_status == "paired" )
+		"""
+		fastp --in1 ${reads} \
+		--out1 ${sample}_${species}_${library_prep}_filtered.fastq.gz \
+		--qualified_quality_phred 15 \
+		--length_required 70 \
+		--detect_adapter_for_pe --correction \
+		--low_complexity_filter \
+		--trim_tail1 5 \
+		--thread ${task.cpus} \
+		--html ${sample}_${species}_${library_prep}.html
+		"""
+	else
+		"""
+		fastp --in1 ${reads} \
+		--out1 ${sample}_${species}_${library_prep}_filtered.fastq.gz \
+		--qualified_quality_phred 15 \
+		--length_required 70 \
+		--low_complexity_filter \
+		--trim_tail1 5 \
+		--thread ${task.cpus} \
+		--html ${sample}_${species}_${library_prep}.html
+		"""
 }
 
 
