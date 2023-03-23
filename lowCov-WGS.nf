@@ -289,12 +289,12 @@ process INTERLEAVE_READS {
 		reformat.sh \
 		in1=${reads1_path} \
 		in2=${reads2_path} \
-		out=${sample}_${species}_${library_prep}.fastq.gz
+		out=${sample}_${species}_${library_prep}.fastq
 		paired_status=`echo "paired"`
         """
     } else {
         """
-        cp ${reads1_path} ./${sample}_${species}_${library_prep}_se.fastq.gz
+        cp `realpath ${reads1_path}` ./${sample}_${species}_${library_prep}_se.fastq.gz
 		paired_status=`echo "paired"`
         """
     }
@@ -376,12 +376,20 @@ process TRIM_ADAPTERS {
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 
 	script:
-	"""
-	bbduk.sh in=${reads} \
-	out=${sample}_trim_adapters.fastq.gz \
-	ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=70 ref=adapters ftm=5 ordered \
-	threads=${task.cpus}
-	"""
+	if ( paired_status == "paired" )
+		"""
+		bbduk.sh in=${reads} \
+		out=${sample}_trim_adapters.fastq.gz \
+		ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=70 ref=adapters ftm=5 ordered \
+		threads=${task.cpus}
+		"""
+	else
+		"""
+		bbduk.sh in=${reads} \
+		out=${sample}_trim_adapters.fastq.gz \
+		ktrim=r k=23 mink=11 hdist=1 minlen=70 ref=adapters ftm=5 ordered \
+		threads=${task.cpus}
+		"""
 
 }
 
@@ -550,7 +558,6 @@ process MERGE_READS {
     tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*_merged.fastq.gz")
 	
 	script:
-	println paired_status
 	if ( paired_status == "paired" )
 		"""
 		bbmerge-auto.sh in=${reads} \
