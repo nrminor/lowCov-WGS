@@ -1,2 +1,3 @@
 sample,population,species,library_prep,seq_platform,reads1_path,reads2_path
 LAZB01,Nevada,LAZB,RAD,Illumina,/Volumes/working_ssd/nrm_experiments/001/reads/LAZB01.fq.gz,/Volumes/working_ssd/nrm_experiments/001/reads/LAZB01_002.fq.gz
+LAZB11,Washington,LAZB,WGS,Illumina,/Volumes/working_ssd/nrm_experiments/001/reads/LAZB11_S11_L006_R1_001.fastq.gz,/Volumes/working_ssd/nrm_experiments/001/reads/LAZB11_S11_L006_R2_001.fastq.gz

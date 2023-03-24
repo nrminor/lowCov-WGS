@@ -83,9 +83,14 @@ workflow {
     //     FASTQC.out.collect()
     // )
 
+	INDEX_REFERENCE (
+		ch_reference
+	)
+
     MAP_TO_REFERENCE (
         FASTP_FILTER.out,
-		ch_reference
+		ch_reference,
+		INDEX_REFERENCE.out
     )
 
     // ASSESS_DEPTH (
@@ -133,13 +138,13 @@ workflow {
     // )
 
     // NGSADMIX (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
     //         .groupTuple( by:[0,1] )
     // )
 
     // PCANGSD (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
     //         .groupTuple( by:[0,1] )
 	// )
@@ -153,7 +158,7 @@ workflow {
 	// )
 
     // ANGSD_GWAS (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
     //         .groupTuple( by:[0,1] )
 	// )
@@ -163,7 +168,7 @@ workflow {
 	// )
 
     // ROH (
-	// 	MAP_TO_REFERENCE.out
+	// 	MAP_TO_REFERENCE.out.bam
 	// )
 
 	// PEDIGREE_STRUCTURES (
@@ -174,13 +179,13 @@ workflow {
 
     // Population-level analyses
     // ANGSD_AF (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
     //         .groupTuple( by:[0,1] )
 	// )
     
     // ANGSD_SFS (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
     //         .groupTuple( by:[0,1] )
 	// )
@@ -194,7 +199,7 @@ workflow {
 	// )
 
     // ANGSD_FST (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     //         .map { sample, population, species, library_prep, seq_platform, bam -> species, library_prep, bam }
     //         .groupTuple( by:[0,1] )
 	// )
@@ -751,6 +756,28 @@ process MULTIQC {
 	"""
 }
 
+process INDEX_REFERENCE {
+	
+	/* 
+	This step creates BWA index files for the reference sequence, which
+	are used downstream in the alignment step.
+	*/
+
+	errorStrategy { task.attempt < 2 ? 'retry' : 'ignore' }
+    maxRetries 1
+	
+	input:
+	path reference
+	
+	output:
+	path "*"
+	
+	script:
+	"""
+	bwa index ${reference}
+	"""
+}
+
 
 process MAP_TO_REFERENCE {
 	
@@ -770,6 +797,7 @@ process MAP_TO_REFERENCE {
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 	each path(reference)
+	each path(indices)
 	
 	output:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.bam"), emit: bam
@@ -777,11 +805,10 @@ process MAP_TO_REFERENCE {
 	
 	script:
 	"""
-	bwa index ${reference} && \
-	bwa mem -t ${task.cpus} ${reference} `realpath ${reads}` \
-	| samtools sort -u - \
-	| samtools collate -Ou - \
-    | samtools view -bS --write-index - > ${sample}_${species}_${library_prep}.bam
+	bwa mem -t ${task.cpus} "${reference}" `realpath ${reads}` \
+    | samtools view -bS - \
+	| samtools sort -u - > ${sample}_${species}_${library_prep}.bam
+	samtools index ${sample}_${species}_${library_prep}.bam
 	"""
 }
 
