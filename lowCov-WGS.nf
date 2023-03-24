@@ -66,13 +66,13 @@ workflow {
 		MERGE_READS.out
 	)
 
-    ORIENT_READS (
-        QUALITY_TRIM.out,
-		ch_reference
-    )
+    // ORIENT_READS (
+    //     QUALITY_TRIM.out,
+	// 	ch_reference
+    // )
 
     FASTP_FILTER (
-        ORIENT_READS.out
+        QUALITY_TRIM.out
     )
 
     // FASTQC (
@@ -84,7 +84,8 @@ workflow {
     // )
 
     MAP_TO_REFERENCE (
-        FASTP_FILTER.out
+        FASTP_FILTER.out,
+		ch_reference
     )
 
     // ASSESS_DEPTH (
@@ -234,11 +235,11 @@ params.error_correct = params.preprocessing + "/05_error_correct"
 params.normalize = params.preprocessing + "/06_normalized_reads"
 params.merged_reads = params.preprocessing + "/07_read_merging"
 params.qtrim = params.preprocessing + "/08_quality_trim"
-params.orient = params.preprocessing + "/09_orient_reads"
-params.fastp = params.preprocessing + "/10_fastp_filter"
+// params.orient = params.preprocessing + "/09_orient_reads"
+params.fastp = params.preprocessing + "/09_fastp_filter"
 
 // FASTQ read QC reports
-params.read_reports = params.preprocessing + "/11_read_reports"
+params.read_reports = params.preprocessing + "/10_read_reports"
 params.fastqc = params.read_reports + "/FastQC"
 params.multiqc = params.read_reports + "/MultiQC"
 
@@ -280,15 +281,13 @@ process INTERLEAVE_READS {
 	
 	output:
     tuple val(sample), val(population), val(species), val(library_prep), env(paired_status), path("*.fastq.gz")
-
-	
 	
 	script:
     if ( reads2_path.exists() ){
         """
 		reformat.sh \
-		in1=${reads1_path} \
-		in2=${reads2_path} \
+		in1=`realpath ${reads1_path}` \
+		in2=`realpath ${reads2_path}` \
 		out=${sample}_${species}_${library_prep}.fastq
 		paired_status=`echo "paired"`
         """
@@ -311,6 +310,8 @@ process REMOVE_OPTICAL_DUPLICATES {
 	tag "${sample}"
 	publishDir params.optical_dedupe, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -321,7 +322,7 @@ process REMOVE_OPTICAL_DUPLICATES {
 
 	script:
 	"""
-	clumpify.sh in=${reads} \
+	clumpify.sh in=`realpath ${reads}` \
 	out=${sample}_clumped.fastq.gz \
 	threads=${task.cpus} \
 	dedupe optical tossbrokenreads
@@ -339,6 +340,8 @@ process REMOVE_LOW_QUALITY_REGIONS {
 	tag "${sample}"
 	publishDir params.low_quality, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -349,7 +352,7 @@ process REMOVE_LOW_QUALITY_REGIONS {
 
 	script:
 	"""
-	filterbytile.sh in=${reads} \
+	filterbytile.sh in=`realpath ${reads}` \
 	out=${sample}_filtered_by_tile.fastq.gz \
 	threads=${task.cpus}
 	"""
@@ -367,6 +370,8 @@ process TRIM_ADAPTERS {
 	tag "${sample}"
 	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -378,14 +383,14 @@ process TRIM_ADAPTERS {
 	script:
 	if ( paired_status == "paired" )
 		"""
-		bbduk.sh in=${reads} \
+		bbduk.sh in=`realpath ${reads}` \
 		out=${sample}_trim_adapters.fastq.gz \
 		ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=70 ref=adapters ftm=5 ordered \
 		threads=${task.cpus}
 		"""
 	else
 		"""
-		bbduk.sh in=${reads} \
+		bbduk.sh in=`realpath ${reads}` \
 		out=${sample}_trim_adapters.fastq.gz \
 		ktrim=r k=23 mink=11 hdist=1 minlen=70 ref=adapters ftm=5 ordered \
 		threads=${task.cpus}
@@ -404,6 +409,8 @@ process REMOVE_ARTIFACTS {
 	tag "${sample}"
 	publishDir params.remove_artifacts, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -414,7 +421,7 @@ process REMOVE_ARTIFACTS {
 
 	script:
 	"""
-	bbduk.sh in=${reads} \
+	bbduk.sh in=`realpath ${reads}` \
 	out=${sample}_remove_artifacts.fastq.gz \
 	k=31 ref=artifacts,phix ordered cardinality \
 	threads=${task.cpus}
@@ -433,6 +440,8 @@ process ERROR_CORRECT_PHASE_ONE {
 	tag "${sample}"
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -443,7 +452,7 @@ process ERROR_CORRECT_PHASE_ONE {
 
 	script:
 	"""
-	bbmerge.sh in=${reads} \
+	bbmerge.sh in=`realpath ${reads}` \
 	out=${sample}_error_correct1.fastq.gz \
 	ecco mix vstrict ordered \
 	ihist=${sample}_ihist_merge1.txt \
@@ -462,6 +471,8 @@ process ERROR_CORRECT_PHASE_TWO {
 	tag "${sample}"
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -472,7 +483,7 @@ process ERROR_CORRECT_PHASE_TWO {
 
 	script:
 	"""
-	clumpify.sh in=${reads} \
+	clumpify.sh in=`realpath ${reads}` \
 	out=${sample}_error_correct2.fastq.gz \
 	ecc passes=4 reorder \
 	threads=${task.cpus}
@@ -490,6 +501,8 @@ process ERROR_CORRECT_PHASE_THREE {
 	tag "${sample}"
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -500,7 +513,7 @@ process ERROR_CORRECT_PHASE_THREE {
 
 	script:
 	"""
-	tadpole.sh in=${reads} \
+	tadpole.sh in=`realpath ${reads}` \
 	out=${sample}_error_correct3.fastq.gz \
 	ecc k=62 ordered \
 	threads=${task.cpus}
@@ -521,6 +534,8 @@ process NORMALIZE_READS {
 	tag "${sample}"
 	publishDir params.normalize, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -531,7 +546,7 @@ process NORMALIZE_READS {
 
 	script:
 	"""
-	bbnorm.sh in=${reads} \
+	bbnorm.sh in=`realpath ${reads}` \
 	out=${sample}_normalized.fastq.gz \
 	target=100 \
 	hist=${sample}_khist.txt \
@@ -550,6 +565,8 @@ process MERGE_READS {
 
 	tag "${sample}"
 	publishDir params.merged_reads, mode: params.publishMode, overwrite: true
+
+	errorStrategy 'ignore'
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -560,7 +577,7 @@ process MERGE_READS {
 	script:
 	if ( paired_status == "paired" )
 		"""
-		bbmerge-auto.sh in=${reads} \
+		bbmerge-auto.sh in=`realpath ${reads}` \
 		out=${sample}_merged.fastq.gz \
 		outu=${sample}_unmerged.fastq.gz \
 		strict k=93 extend2=80 rem ordered \
@@ -585,6 +602,8 @@ process QUALITY_TRIM {
 	tag "${sample}"
 	publishDir params.qtrim, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 
+	errorStrategy 'ignore'
+
 	cpus 8
 
 	input:
@@ -595,7 +614,7 @@ process QUALITY_TRIM {
 
 	script:
 	"""
-	bbduk.sh in=${reads} \
+	bbduk.sh in=`realpath ${reads}` \
 	out=${sample}_qtrimmed.fastq.gz \
 	qtrim=rl trimq=10 minlen=70 ordered \
 	threads=${task.cpus}
@@ -604,31 +623,33 @@ process QUALITY_TRIM {
 }
 
 
-process ORIENT_READS {
+// process ORIENT_READS {
 	
-	/* 
-	Next, reads are oriented such that they have the same 5' to 3' polarity as the 
-	reference sequence, which reduces the need to map or primer-trim reverse 
-	complements. This step may be removed in future versions.
-	*/
+// 	/* 
+// 	Next, reads are oriented such that they have the same 5' to 3' polarity as the 
+// 	reference sequence, which reduces the need to map or primer-trim reverse 
+// 	complements. This step may be removed in future versions.
+// 	*/
 	
-	tag "${sample}"
-	publishDir params.orient, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
+// 	tag "${sample}"
+// 	publishDir params.orient, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
+
+// 	errorStrategy 'ignore'
 	
-	input:
-    tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
-	each path(reference)
+// 	input:
+//     tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
+// 	each path(reference)
 	
-	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
+// 	output:
+// 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.fastq.gz")
 	
-	script:
-	"""
-    vsearch --orient ${reads} \
-	--db ${reference} \
-    --fastqout ${sample}_oriented.fastq.gz
-	"""
-}
+// 	script:
+// 	"""
+//     vsearch --orient `realpath ${reads}` \
+// 	--db ${reference} \
+//     --fastqout ${sample}_oriented.fastq.gz
+// 	"""
+// }
 
 
 process FASTP_FILTER {
@@ -641,6 +662,8 @@ process FASTP_FILTER {
 	
 	tag "${sample}"
 	publishDir params.fastp, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
+
+	errorStrategy 'ignore'
 	
 	cpus 4
 	
@@ -653,7 +676,7 @@ process FASTP_FILTER {
 	script:
 	if ( paired_status == "paired" )
 		"""
-		fastp --in1 ${reads} \
+		fastp --in1 `realpath ${reads}` \
 		--out1 ${sample}_${species}_${library_prep}_filtered.fastq.gz \
 		--qualified_quality_phred 15 \
 		--length_required 70 \
@@ -665,8 +688,8 @@ process FASTP_FILTER {
 		"""
 	else
 		"""
-		fastp --in1 ${reads} \
-		--out1 ${sample}_${species}_${library_prep}_filtered.fastq.gz \
+		fastp --in1 `realpath ${reads}` \
+		--out1 ${sample}_filtered.fastq.gz \
 		--qualified_quality_phred 15 \
 		--length_required 70 \
 		--low_complexity_filter \
@@ -686,6 +709,8 @@ process FASTQC {
 	
 	tag "${sample}"
 	publishDir params.fastqc, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
+
+	errorStrategy 'ignore'
 	
 	cpus 4
 	
@@ -709,6 +734,8 @@ process MULTIQC {
 	*/
 	
 	publishDir params.multiqc, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
+
+	errorStrategy 'ignore'
 	
 	cpus 4
 	
@@ -735,18 +762,22 @@ process MAP_TO_REFERENCE {
 	
 	tag "${sample}"
 	publishDir params.read_mapping, mode: 'copy', overwrite: true
+
+	errorStrategy 'ignore'
 	
 	cpus 4
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
+	each path(reference)
 	
 	output:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.bam")
 	
 	script:
 	"""
-	bwa mem -t ${task.cpus} ${params.reference} ${reads} \
+	bwa index ${reference} && \
+	bwa mem -t ${task.cpus} ${reference} `realpath ${reads}` \
     | samtools view -bS - > ${sample}_${species}_${library_prep}.bam
 	"""
 }
