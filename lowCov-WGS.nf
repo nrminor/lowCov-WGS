@@ -89,7 +89,7 @@ workflow {
     )
 
     // ASSESS_DEPTH (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     // )
 
     // PLOT_DEPTH (
@@ -97,13 +97,13 @@ workflow {
     // )
 
     // ANGSD_GL (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     //         .map { sample, population, species, library_prep, seq_platform, bam -> sample, population, species, library_prep, bam }
     //         .groupTuple( by:[2,3] )
     // )
 
     // CALL_VARIANTS (
-    //     MAP_TO_REFERENCE.out
+    //     MAP_TO_REFERENCE.out.bam
     // )
 
     // FILTER_VARIANTS (
@@ -772,13 +772,16 @@ process MAP_TO_REFERENCE {
 	each path(reference)
 	
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.bam")
+	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.bam"), emit: bam
+	path "*.bam.bai", emit: index
 	
 	script:
 	"""
 	bwa index ${reference} && \
 	bwa mem -t ${task.cpus} ${reference} `realpath ${reads}` \
-    | samtools view -bS - > ${sample}_${species}_${library_prep}.bam
+	| samtools sort -u - \
+	| samtools collate -Ou - \
+    | samtools view -bS --write-index - > ${sample}_${species}_${library_prep}.bam
 	"""
 }
 
