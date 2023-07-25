@@ -904,11 +904,13 @@ process CALL_VARIANTS {
 	tuple val(samples), val(populations), val(species), val(library_prep), path(bam_files)
 	
 	output:
-	tuple val(species), val(library_prep), path("*.vcf.gz")
+	tuple val(species), val(library_prep), path("*.vcf.gz*")
 	
 	script:
 	"""
-	
+	bcftools mpileup -a AD,DP,SP --threads ${task.cpus} -Ou -f ${params.reference} ${bam_files} \
+	| bcftools call -f GQ,GP --threads ${task.cpus} --keep-masked-ref -m -O z -o ${species}_${library_prep}.vcf.gz && \
+	tabix -p vcf ${species}_${library_prep}.vcf.gz
 	"""
 }
 

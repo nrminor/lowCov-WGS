@@ -75,16 +75,35 @@ RUN wget https://github.com/lh3/bwa/archive/v0.7.17.tar.gz && \
     cd .. && \
     rm -rf bwa-0.7.17
 
-# Install samtools
-RUN wget https://github.com/samtools/samtools/releases/download/1.13/samtools-1.13.tar.bz2 && \
-    tar xvjf samtools-1.13.tar.bz2 && \
-    rm -f samtools-1.13.tar.bz2 && \
-    cd samtools-1.13 && \
+# Install HTSLib
+RUN wget https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2 && \
+    tar -vxjf htslib-1.17.tar.bz2 && \
+    rm htslib-1.17.tar.bz2 && \
+    cd htslib-1.17 && \
+    autoreconf -i && \
     ./configure && \
     make && \
-    make install && \
-    cd .. && \
-    rm -rf samtools-1.13
+    make install
+
+# Install SAMTools
+RUN wget https://github.com/samtools/samtools/releases/download/1.17/samtools-1.17.tar.bz2 &&\
+    tar -vxjf samtools-1.17.tar.bz2 && \
+    rm samtools-1.17.tar.bz2 && \
+    cd samtools-1.17 && \
+    autoreconf -i && \
+    ./configure && \
+    make && \
+    make install
+
+# Install BCFTools
+RUN wget https://github.com/samtools/bcftools/releases/download/1.17/bcftools-1.17.tar.bz2 &&\
+    tar -vxjf bcftools-1.17.tar.bz2 && \
+    rm bcftools-1.17.tar.bz2 && \
+    cd bcftools-1.17 && \
+    autoreconf -i && \
+    ./configure && \
+    make && \
+    make install
 
 # Install ANGSD
 # RUN git clone https://github.com/ANGSD/angsd.git && \
