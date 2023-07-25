@@ -107,9 +107,9 @@ workflow {
     //         .groupTuple( by:[2,3] )
     // )
 
-    // CALL_VARIANTS (
-    //     MAP_TO_REFERENCE.out.bam
-    // )
+    CALL_VARIANTS (
+        MAP_TO_REFERENCE.out.bam
+    )
 
     // FILTER_VARIANTS (
     //     CALL_VARIANTS.out
@@ -776,7 +776,7 @@ process MAP_TO_REFERENCE {
 	each path(indices)
 	
 	output:
-	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path("*.bam"), emit: bam
+	tuple val(sample), val(population), val(species), val(library_prep), path("*.bam"), emit: bam
 	path "*.bam.bai", emit: index
 	
 	script:
