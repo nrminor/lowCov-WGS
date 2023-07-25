@@ -280,10 +280,8 @@ process INTERLEAVE_READS {
 	*/
 
 	tag "${sample}"
-
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	
+	cpus 8
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(seq_platform), path(reads1_path), path(reads2_path)
@@ -319,9 +317,7 @@ process REMOVE_OPTICAL_DUPLICATES {
 	tag "${sample}"
 	publishDir params.optical_dedupe, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -349,9 +345,7 @@ process REMOVE_LOW_QUALITY_REGIONS {
 	tag "${sample}"
 	publishDir params.low_quality, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -379,9 +373,7 @@ process TRIM_ADAPTERS {
 	tag "${sample}"
 	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -418,9 +410,7 @@ process REMOVE_ARTIFACTS {
 	tag "${sample}"
 	publishDir params.remove_artifacts, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -449,9 +439,7 @@ process ERROR_CORRECT_PHASE_ONE {
 	tag "${sample}"
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -480,9 +468,7 @@ process ERROR_CORRECT_PHASE_TWO {
 	tag "${sample}"
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -510,9 +496,7 @@ process ERROR_CORRECT_PHASE_THREE {
 	tag "${sample}"
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -571,9 +555,7 @@ process MERGE_READS {
 	tag "${sample}"
 	publishDir params.merged_reads, mode: params.publishMode, overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -609,9 +591,7 @@ process QUALITY_TRIM {
 	tag "${sample}"
 	publishDir params.qtrim, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -670,9 +650,7 @@ process FASTP_FILTER {
 	tag "${sample}"
 	publishDir params.fastp, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -759,9 +737,7 @@ process INDEX_REFERENCE {
 	are used downstream in the alignment step.
 	*/
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy { task.attempt < 2 ? 'retry' : 'ignore' }
-    maxRetries 1
+	cpus 8
 	
 	input:
 	path reference
@@ -787,9 +763,7 @@ process MAP_TO_REFERENCE {
 	tag "${sample}"
 	publishDir params.read_mapping, mode: 'copy', overwrite: true
 	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
+	cpus 8
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -896,10 +870,6 @@ process CALL_VARIANTS {
 	
 	tag "${species} ${library_prep}"
 	publishDir params.results, mode: 'copy'
-	
-	memory = { 64.GB * task.attempt }
-	errorStrategy = { task.attempt < 2 ? 'retry' : 'ignore' }
-	maxRetries = 1
 	
 	input:
 	tuple val(samples), val(populations), val(species), val(library_prep), path(bam_files)
