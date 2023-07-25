@@ -317,8 +317,6 @@ process REMOVE_OPTICAL_DUPLICATES {
 
 	errorStrategy 'ignore'
 
-	cpus 8
-
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
@@ -347,8 +345,6 @@ process REMOVE_LOW_QUALITY_REGIONS {
 
 	errorStrategy 'ignore'
 
-	cpus 8
-
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
@@ -376,8 +372,6 @@ process TRIM_ADAPTERS {
 	publishDir params.trim_adapters, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	errorStrategy 'ignore'
-
-	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -416,8 +410,6 @@ process REMOVE_ARTIFACTS {
 
 	errorStrategy 'ignore'
 
-	cpus 8
-
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
@@ -446,8 +438,6 @@ process ERROR_CORRECT_PHASE_ONE {
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	errorStrategy 'ignore'
-
-	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -478,8 +468,6 @@ process ERROR_CORRECT_PHASE_TWO {
 
 	errorStrategy 'ignore'
 
-	cpus 8
-
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
@@ -507,8 +495,6 @@ process ERROR_CORRECT_PHASE_THREE {
 	publishDir params.error_correct, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	errorStrategy 'ignore'
-
-	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -540,8 +526,6 @@ process NORMALIZE_READS {
 	publishDir params.normalize, pattern: "*.fastq.gz", mode: params.publishMode, overwrite: true
 
 	errorStrategy 'ignore'
-
-	cpus 8
 
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -609,8 +593,6 @@ process QUALITY_TRIM {
 
 	errorStrategy 'ignore'
 
-	cpus 8
-
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 
@@ -670,8 +652,6 @@ process FASTP_FILTER {
 
 	errorStrategy 'ignore'
 	
-	cpus 4
-	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
 	
@@ -716,8 +696,6 @@ process FASTQC {
 	publishDir params.fastqc, pattern: "*.fastq.gz", mode: 'copy', overwrite: true
 
 	errorStrategy 'ignore'
-	
-	cpus 4
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
@@ -791,8 +769,6 @@ process MAP_TO_REFERENCE {
 	publishDir params.read_mapping, mode: 'copy', overwrite: true
 
 	errorStrategy 'ignore'
-	
-	cpus 4
 	
 	input:
 	tuple val(sample), val(population), val(species), val(library_prep), val(paired_status), path(reads)
